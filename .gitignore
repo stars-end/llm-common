@@ -37,18 +37,24 @@ env/
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .hypothesis/
+.mypy_cache/
+.ruff_cache/
 
 # Environment variables
 .env
 .env.local
 
 # Type checking
-.mypy_cache/
 .dmypy.json
 dmypy.json
 
 # Distribution
 *.whl
+
+# OS
+.DS_Store
+Thumbs.db

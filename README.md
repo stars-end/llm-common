@@ -6,6 +6,7 @@ Shared LLM framework for affordabot and prime-radiant-ai.
 
 - **Multi-Provider Support**: z.ai, OpenRouter, and any OpenAI-compatible endpoint
 - **Web Search**: z.ai web search with intelligent caching
+- **Retrieval**: Interfaces and models for retrieval-augmented generation (RAG)
 - **Structured Outputs**: Built-in support for instructor and Pydantic models
 - **Cost Tracking**: Per-request cost monitoring and budget alerts
 - **Retry Logic**: Exponential backoff with jitter for reliability
@@ -63,6 +64,24 @@ results = await search.search(
 )
 ```
 
+### Retrieval (RAG)
+
+```python
+from llm_common.retrieval import RetrievalBackend, RetrievedChunk
+
+# Implement a custom retrieval backend
+class MyRetrieval(RetrievalBackend):
+    async def retrieve(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
+        # Your implementation here
+        pass
+
+# Use the backend
+async with MyRetrieval() as backend:
+    results = await backend.retrieve("What is RAG?", top_k=3)
+    for chunk in results:
+        print(f"{chunk.source}: {chunk.content}")
+```
+
 ### Structured Outputs with instructor
 
 ```python
@@ -92,10 +111,13 @@ analysis = await client.chat.completions.create(
 llm_common/
 ├── core/           # Abstract interfaces and data models
 ├── providers/      # Provider implementations (Zai, OpenRouter, Unified)
+├── retrieval/      # RAG interfaces (RetrievalBackend, RetrievedChunk)
 ├── web_search/     # Web search with caching
 ├── utils/          # Retry logic, cost tracking, logging
 └── integrations/   # instructor, Pydantic helpers
 ```
+
+This library is designed to be driven by primary repos (Prime Radiant, Affordabot) that track work in Beads. All commits should carry Feature-Keys from controlling epics (bd-svse, affordabot-rdx, etc.).
 
 ## Cost Optimization
 
@@ -126,10 +148,8 @@ poetry run ruff llm_common
 
 See `docs/` for detailed documentation:
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Provider Guide](docs/PROVIDERS.md)
-- [Web Search](docs/WEB_SEARCH.md)
-- [Cost Tracking](docs/COST_TRACKING.md)
+- [Integration and Retrieval Guide](docs/LLM_COMMON_WORKSTREAMS/INTEGRATION_AND_RETRIEVAL.md)
+- [Implementation Status](IMPLEMENTATION_STATUS.md)
 
 ## License
 

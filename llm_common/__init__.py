@@ -19,6 +19,7 @@ from llm_common.core import (
     WebSearchResult,
 )
 from llm_common.providers import OpenRouterClient, ZaiClient
+from llm_common.retrieval import RetrievalBackend, RetrievedChunk
 from llm_common.web_search import WebSearchClient
 
 __version__ = "0.1.0"
@@ -49,4 +50,7 @@ __all__ = [
     "OpenRouterClient",
     # Web Search
     "WebSearchClient",
+    # Retrieval
+    "RetrievalBackend",
+    "RetrievedChunk",
 ]
