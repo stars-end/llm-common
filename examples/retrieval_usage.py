@@ -187,11 +187,186 @@ Answer:"""
     print("\nThis prompt would be sent to an LLM (ZaiClient, OpenRouterClient, etc.)")
 
 
+async def pgvector_backend_example() -> None:
+    """Demonstrate Supabase pgvector backend usage (with mocked Supabase client).
+
+    In production, you would:
+    1. Create actual Supabase client: supabase = create_client(url, key)
+    2. Implement real embedding function (OpenAI, local model, etc.)
+    3. Create database table with pgvector extension
+    4. Create RPC function for similarity search
+    """
+    print("\n\n=== Supabase pgvector Backend Example ===\n")
+
+    # Mock Supabase client for demonstration
+    # In production, use: from supabase import create_client
+    class MockSupabaseClient:
+        """Mock Supabase client for demo purposes."""
+        def rpc(self, function_name: str, params: dict) -> Any:
+            class Response:
+                def __init__(self):
+                    self.data = [
+                        {
+                            "id": "doc_001",
+                            "content": "pgvector is a Postgres extension for vector similarity search.",
+                            "source": "docs/pgvector.md",
+                            "section": "overview",
+                            "page": 1,
+                            "similarity": 0.92,
+                        },
+                        {
+                            "id": "doc_002",
+                            "content": "Supabase provides managed Postgres with pgvector support.",
+                            "source": "docs/supabase.md",
+                            "section": "features",
+                            "page": 3,
+                            "similarity": 0.88,
+                        },
+                    ]
+                    # Apply match_count limit
+                    if "match_count" in params:
+                        self.data = self.data[:params["match_count"]]
+
+                def execute(self):
+                    return self
+
+            return Response()
+
+        def table(self, name: str) -> Any:
+            class Table:
+                def select(self, cols: str) -> Any:
+                    class Query:
+                        def limit(self, n: int) -> Any:
+                            class Execute:
+                                def execute(self) -> Any:
+                                    class Resp:
+                                        data = [{"count": 100}]
+                                    return Resp()
+                            return Execute()
+                    return Query()
+            return Table()
+
+    # Mock embedding function
+    # In production, use OpenAI, Sentence Transformers, or similar
+    async def embed_query(text: str) -> list[float]:
+        """Generate embedding vector from text (mock implementation)."""
+        # In production: return openai.embeddings.create(input=text, model="text-embedding-3-small")
+        # For demo: return dummy vector
+        return [0.1, 0.2, 0.3] * 128  # 384-dimensional vector
+
+    # Import the backend
+    try:
+        from llm_common.retrieval.backends import SupabasePgVectorBackend
+
+        # Create backend with mock client
+        backend = SupabasePgVectorBackend(
+            supabase_client=MockSupabaseClient(),
+            table="document_chunks",
+            vector_col="embedding",
+            text_col="content",
+            metadata_cols=["section", "page"],
+            embed_fn=embed_query,
+        )
+
+        # Perform similarity search
+        print("Query: 'What is pgvector?'")
+        results = await backend.retrieve("What is pgvector?", top_k=2)
+
+        print(f"\nFound {len(results)} results:\n")
+        for i, chunk in enumerate(results, 1):
+            print(f"Result {i}:")
+            print(f"  Score: {chunk.score:.2f}")
+            print(f"  Source: {chunk.source}")
+            print(f"  Content: {chunk.content[:80]}...")
+            print(f"  Metadata: {chunk.metadata}\n")
+
+        # Health check
+        is_healthy = await backend.health_check()
+        print(f"Backend health check: {'✓ Healthy' if is_healthy else '✗ Unhealthy'}")
+
+        print("\n" + "=" * 60)
+        print("Production Setup Notes:")
+        print("=" * 60)
+        print("""
+1. Install Supabase client:
+   pip install supabase
+
+2. Enable pgvector extension in Supabase:
+   CREATE EXTENSION IF NOT EXISTS vector;
+
+3. Create table with vector column:
+   CREATE TABLE document_chunks (
+     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+     content TEXT NOT NULL,
+     embedding VECTOR(384),  -- or 1536 for OpenAI
+     source TEXT,
+     section TEXT,
+     page INTEGER
+   );
+
+4. Create similarity search RPC function:
+   CREATE OR REPLACE FUNCTION match_document_chunks(
+     query_embedding VECTOR(384),
+     match_count INT DEFAULT 5,
+     match_threshold FLOAT DEFAULT 0.0
+   )
+   RETURNS TABLE (
+     id UUID,
+     content TEXT,
+     source TEXT,
+     section TEXT,
+     page INTEGER,
+     similarity FLOAT
+   )
+   LANGUAGE plpgsql
+   AS $$
+   BEGIN
+     RETURN QUERY
+     SELECT
+       document_chunks.id,
+       document_chunks.content,
+       document_chunks.source,
+       document_chunks.section,
+       document_chunks.page,
+       1 - (document_chunks.embedding <=> query_embedding) AS similarity
+     FROM document_chunks
+     WHERE 1 - (document_chunks.embedding <=> query_embedding) > match_threshold
+     ORDER BY document_chunks.embedding <=> query_embedding
+     LIMIT match_count;
+   END;
+   $$;
+
+5. Use in production:
+   from supabase import create_client
+   from openai import OpenAI
+
+   supabase = create_client(url, key)
+   openai_client = OpenAI()
+
+   async def embed(text: str) -> list[float]:
+       response = openai_client.embeddings.create(
+           input=text,
+           model="text-embedding-3-small"
+       )
+       return response.data[0].embedding
+
+   backend = SupabasePgVectorBackend(
+       supabase_client=supabase,
+       table="document_chunks",
+       embed_fn=embed
+   )
+""")
+
+    except ImportError:
+        print("SupabasePgVectorBackend not available (backend implementation needed)")
+
+
 async def main() -> None:
     """Run all examples."""
     await basic_retrieval_example()
     await context_manager_example()
     await rag_context_formatting_example()
+    await pgvector_backend_example()
 
 
 if __name__ == "__main__":
