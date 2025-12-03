@@ -89,6 +89,70 @@ class VectorStoreBackend(RetrievalBackend):
         await self.connection.close()
 ```
 
+## Backend Implementations
+
+### Recommended First Backend: Supabase pgvector
+
+For production deployments in Affordabot and Prime Radiant, we recommend starting with **SupabasePgVectorBackend** as the default retrieval implementation.
+
+**Rationale:**
+
+1. **Lowest Incremental Cost**: Uses existing Supabase Postgres infrastructure with pgvector extension - no additional database or service costs
+2. **Managed Operations**: Supabase handles database management, backups, and scaling
+3. **Easy Metadata Joins**: Native SQL support enables efficient filtering and joins with application data
+4. **Proven Scale**: pgvector handles millions of vectors efficiently for typical RAG workloads
+5. **Development Simplicity**: Single database for both application data and vectors
+
+**When pgvector is sufficient:**
+- Document collections < 10M chunks
+- Query latency requirements < 500ms
+- Moderate concurrent query load (< 100 QPS)
+- Metadata filtering and complex queries needed
+
+### Alternative Backends
+
+#### ChromaDB (Development/Embedded Only)
+**Status**: Not implemented, development use only
+
+- **Use Case**: Local development, prototyping, testing
+- **Pros**: Embedded, zero setup, great for development
+- **Cons**: Not designed for production, limited scalability, no managed option
+- **When to use**: Local development environment only
+
+#### Qdrant (Managed Vector Service - Future)
+**Status**: Optional future implementation if pgvector hits limits
+
+- **Use Case**: High-scale vector search when pgvector reaches resource limits
+- **Pricing**: Free tier: 1GB storage; $25/mo for 4GB + dedicated resources
+- **Pros**: Purpose-built vector DB, excellent performance, managed service available
+- **Cons**: Additional service to manage, higher cost than pgvector
+- **When to consider**:
+  - Document collections > 10M chunks
+  - Query latency requirements < 100ms
+  - High concurrent load (> 100 QPS)
+  - Postgres resource pressure from vector operations
+
+### Criteria for Adding/Switching Backends
+
+Consider switching from pgvector to a dedicated vector service when:
+
+1. **Scale Limits**:
+   - Vector table size > 50% of Postgres instance capacity
+   - Query performance degrades below requirements (> 500ms p95)
+   - Index rebuild times impact production operations
+
+2. **Resource Pressure**:
+   - Vector similarity computations consuming > 30% CPU
+   - Impacting transactional workload performance
+   - Postgres instance scaling becomes cost-inefficient
+
+3. **Feature Requirements**:
+   - Need for hybrid search (dense + sparse vectors)
+   - Advanced reranking or multi-stage retrieval
+   - Real-time embedding updates at high volume
+
+**Migration Path**: The `RetrievalBackend` abstraction enables zero-code changes when switching backends - only configuration updates needed.
+
 ## Integration Patterns
 
 ### 1. Context Manager Pattern
