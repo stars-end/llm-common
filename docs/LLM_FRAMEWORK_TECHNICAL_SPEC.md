@@ -1816,7 +1816,7 @@ async def test_full_pipeline():
 **`llm-common/pyproject.toml`:**
 ```toml
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.13"
 litellm = "^1.0.0"
 instructor = "^1.0.0"
 openai = "^1.0.0"

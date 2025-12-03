@@ -455,10 +455,10 @@ class LLMPortfolioAnalyzer:
 
 ### ⚠️ MINOR CONCERNS
 
-1. **Python 3.9 compatibility hack**
-   - **Issue**: Used `eval_type_backport` for type evaluation
-   - **Impact**: Extra dependency, potential fragility
-   - **Recommendation**: Consider upgrading to Python 3.10+ (removes need)
+1. **Python version standardization**
+   - **Status**: Standardized to Python 3.13
+   - **Impact**: Modern Python features available, no compatibility hacks needed
+   - **Recommendation**: Maintain Python 3.13+ as minimum version
 
 2. **Package duplication between repos**
    - **Issue**: llm-common copied to both affordabot and prime-radiant-ai

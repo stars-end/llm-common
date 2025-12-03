@@ -168,7 +168,6 @@ files = [
 
 [package.dependencies]
 frozenlist = ">=1.1.0"
-typing-extensions = {version = ">=4.2", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "annotated-types"
@@ -196,7 +195,6 @@ files = [
 
 [package.dependencies]
 idna = ">=2.8"
-typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 
 [package.extras]
 trio = ["trio (>=0.31.0) ; python_version < \"3.10\"", "trio (>=0.32.0) ; python_version >= \"3.10\""]
@@ -2418,5 +2416,5 @@ propcache = ">=0.2.1"
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.11"
-content-hash = "b3fe4eddbe92b195bf0be4e1ba5e6ba2e98e6c6cdc6fe839fde10e955f046c56"
+python-versions = ">=3.13,<4.0"
+content-hash = "208b4826264123cb082db185778810db112016ed099dfe3b98faa75b11d22f6a"
