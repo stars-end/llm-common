@@ -40,8 +40,20 @@ env/
 .coverage.*
 htmlcov/
 .tox/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
+
+# Environment variables
+.env
+.env.local
+
+# Type checking
+.dmypy.json
+dmypy.json
+
+# Distribution
+*.whl
 
 # OS
 .DS_Store
