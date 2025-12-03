@@ -11,7 +11,7 @@ readme = "README.md"
 packages = [{include = "llm_common"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 openai = "^1.0.0"
 instructor = "^1.0.0"
 pydantic = "^2.0.0"
@@ -33,15 +33,15 @@ pytest-mock = "^3.15.1"
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+target-version = ["py313"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 select = ["E", "F", "I", "N", "W", "UP"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
