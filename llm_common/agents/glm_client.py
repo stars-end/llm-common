@@ -23,7 +23,7 @@ class GLMConfig:
     """Configuration for GLM client."""
     api_key: str | None = None
     model: str = "glm-4.6v"
-    base_url: str = "https://api.z.ai/api/paas/v4"
+    base_url: str = "https://api.z.ai/api/coding/paas/v4"
     max_tokens: int = 4096
     temperature: float = 0.7
     timeout: float = 120.0
