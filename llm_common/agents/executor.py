@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List, Dict, Any
 from .schemas import PlannedTask, SubTaskResult, ToolCall, ExecutionPlan
-from llm_common.core import LLMClient
+from llm_common.core import LLMClient, LLMMessage
 # from .tool_context import ToolContextManager # Assumed to exist or we mock it for now
 from llm_common.agents.tool_context import ToolContextManager # It exists in file list
 
@@ -71,18 +71,13 @@ class AgenticExecutor:
         subtasks_str = "\\n".join([f"- {st.description}" for st in task.sub_tasks])
         tools_schema = self.registry.get_tools_schema() # Assumed method on registry
 
+        # System message: context and instructions
         system_prompt = f"""You are an expert agent execution engine.
-        
-        Task: {task.description}
-        
-        Subtasks to complete:
-        {subtasks_str}
         
         Available Tools:
         {tools_schema}
         
-        Decide which tools to call to satisfy the subtasks.
-        Return a LIST of tool calls.
+        Return a JSON list of tool calls to satisfy the given subtasks.
         """
         
         from pydantic import BaseModel
@@ -93,8 +88,19 @@ class AgenticExecutor:
         
         system_prompt += f"\\n\\nReturn JSON matching: {ToolCallList.model_json_schema()}"
 
+        # User message: the actual task and subtasks to process
+        user_prompt = f"""Task: {task.description}
+        
+        Subtasks to complete:
+        {subtasks_str}
+        
+        Decide which tools to call to satisfy these subtasks."""
+
         response = await self.client.chat_completion(
-            messages=[{"role": "system", "content": system_prompt}],
+            messages=[
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt)
+            ],
             response_format={"type": "json_object"},
             temperature=0.0
         )

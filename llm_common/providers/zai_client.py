@@ -102,10 +102,11 @@ class ZaiClient(LLMClient):
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
+                    {"role": (msg.role if hasattr(msg, "role") else msg["role"]), "content": (msg.content if hasattr(msg, "content") else msg["content"])} for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.6" in model else {},
                 **kwargs,
             )
 
@@ -179,11 +180,12 @@ class ZaiClient(LLMClient):
             stream = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
+                    {"role": (msg.role if hasattr(msg, "role") else msg["role"]), "content": (msg.content if hasattr(msg, "content") else msg["content"])} for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.6" in model else {},
                 **kwargs,
             )
 
