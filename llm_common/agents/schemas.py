@@ -29,3 +29,44 @@ class SubTaskResult(BaseModel):
     success: bool
     result: Any = None
     error: Optional[str] = None
+
+class AgentStory(BaseModel):
+    """User story for smoke tests."""
+    id: str
+    persona: str
+    steps: List[Dict[str, Any]]
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+class AgentError(BaseModel):
+    """Error encountered during smoke test."""
+    type: str
+    severity: str  # blocker, high, medium, low
+    message: str
+    details: Dict[str, Any] = Field(default_factory=dict)
+    url: Optional[str] = None
+
+class StepResult(BaseModel):
+    """Result of a single story step."""
+    step_id: str
+    status: str  # pass, fail
+    actions_taken: List[Dict[str, Any]] = Field(default_factory=list)
+    errors: List[AgentError] = Field(default_factory=list)
+    duration_ms: int = 0
+
+class StoryResult(BaseModel):
+    """Result of a complete story execution."""
+    story_id: str
+    status: str  # pass, fail
+    step_results: List[StepResult] = Field(default_factory=list)
+    errors: List[AgentError] = Field(default_factory=list)
+
+class SmokeRunReport(BaseModel):
+    """Overall report for a smoke test run."""
+    run_id: str
+    environment: str
+    base_url: str
+    story_results: List[StoryResult]
+    total_errors: Dict[str, int]
+    started_at: str
+    completed_at: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)

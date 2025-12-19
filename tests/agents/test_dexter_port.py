@@ -69,3 +69,33 @@ async def test_executor_runs_tools():
     mock_registry.execute.assert_called_with("get_price", {"ticker": "AAPL"})
     # Check context saved
     mock_ctx.save_context.assert_called()
+
+@pytest.mark.asyncio
+async def test_executor_runs_plan():
+    # Mock LLM Client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = '{"calls": [{"tool": "test", "args": {}, "reasoning": "rsn"}]}'
+    mock_client.chat_completion = AsyncMock(return_value=mock_response)
+
+    # Mock Registry
+    mock_registry = MagicMock()
+    mock_registry.get_tools_schema.return_value = "{}"
+    mock_registry.execute = AsyncMock(return_value="ok")
+
+    # Mock Context Manager
+    mock_ctx = AsyncMock(spec=ToolContextManager)
+
+    executor = AgenticExecutor(mock_client, mock_registry, mock_ctx)
+
+    plan = ExecutionPlan(tasks=[
+        PlannedTask(id=1, description="Task 1", sub_tasks=[SubTask(id=1, description="st")]),
+        PlannedTask(id=2, description="Task 2", sub_tasks=[SubTask(id=2, description="st")])
+    ])
+
+    results = await executor.execute_plan(plan, "q-1")
+
+    assert len(results) == 2
+    assert results[0].task_id == 1
+    assert results[1].task_id == 2
+    assert mock_registry.execute.call_count == 2

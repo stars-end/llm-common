@@ -21,24 +21,18 @@ class WebSearchClient:
     def __init__(
         self,
         api_key: str,
-        cache_backend: Literal["memory", "supabase"] = "memory",
         cache_ttl: int = 86400,  # 24 hours
-        supabase_client: Optional[Any] = None,
     ) -> None:
         """Initialize web search client.
 
         Args:
             api_key: z.ai API key
-            cache_backend: Cache backend to use ("memory" or "supabase")
             cache_ttl: Cache TTL in seconds (default 24 hours)
-            supabase_client: Supabase client instance (required if backend="supabase")
         """
         self.api_key = api_key
-        self.cache_backend = cache_backend
         self.cache_ttl = cache_ttl
-        self.supabase = supabase_client
 
-        # In-memory cache (used for both backends as L1 cache)
+        # In-memory cache
         self._memory_cache: TTLCache = TTLCache(maxsize=1000, ttl=cache_ttl)
 
         # HTTP client
@@ -80,7 +74,7 @@ class WebSearchClient:
         # Generate cache key
         cache_key = self._generate_cache_key(query, count, domains, recency, kwargs)
 
-        # Check L1 cache (memory)
+        # Check cache (memory)
         cached = self._memory_cache.get(cache_key)
         if cached:
             self._cache_hits += 1
@@ -88,18 +82,6 @@ class WebSearchClient:
             cached["cached"] = True
             cached["created_at"] = datetime.fromisoformat(cached["created_at"])
             return WebSearchResponse(**cached)
-
-        # Check L2 cache (Supabase) if enabled
-        if self.cache_backend == "supabase" and self.supabase:
-            cached = await self._get_from_supabase(cache_key)
-            if cached:
-                self._cache_hits += 1
-                self._total_searches += 1
-                # Warm L1 cache
-                self._memory_cache[cache_key] = cached
-                cached["cached"] = True
-                cached["created_at"] = datetime.fromisoformat(cached["created_at"])
-                return WebSearchResponse(**cached)
 
         # Cache miss - perform actual search
         self._cache_misses += 1
@@ -152,12 +134,8 @@ class WebSearchClient:
             response_dict = search_response.model_dump()
             response_dict["created_at"] = response_dict["created_at"].isoformat()
 
-            # Store in L1 cache (memory)
+            # Store in cache (memory)
             self._memory_cache[cache_key] = response_dict
-
-            # Store in L2 cache (Supabase) if enabled
-            if self.cache_backend == "supabase" and self.supabase:
-                await self._store_in_supabase(cache_key, response_dict)
 
             return search_response
 
@@ -196,85 +174,6 @@ class WebSearchClient:
         }
         cache_str = json.dumps(cache_data, sort_keys=True)
         return hashlib.sha256(cache_str.encode()).hexdigest()
-
-    async def _get_from_supabase(self, cache_key: str) -> Optional[dict[str, Any]]:
-        """Retrieve cached result from Supabase.
-
-        Args:
-            cache_key: Cache key
-
-        Returns:
-            Cached response dict if found and not expired, None otherwise
-        """
-        if not self.supabase:
-            return None
-
-        try:
-            result = (
-                self.supabase.table("web_search_cache")
-                .select("*")
-                .eq("cache_key", cache_key)
-                .single()
-                .execute()
-            )
-
-            if not result.data:
-                return None
-
-            # Check if expired
-            created_at = datetime.fromisoformat(result.data["created_at"])
-            if datetime.utcnow() - created_at > timedelta(seconds=self.cache_ttl):
-                # Expired - delete from cache
-                await self._delete_from_supabase(cache_key)
-                return None
-
-            return result.data["response"]
-
-        except Exception:
-            # Cache errors should not break search
-            return None
-
-    async def _store_in_supabase(
-        self, cache_key: str, response: dict[str, Any]
-    ) -> None:
-        """Store result in Supabase cache.
-
-        Args:
-            cache_key: Cache key
-            response: Response to cache
-        """
-        if not self.supabase:
-            return
-
-        try:
-            self.supabase.table("web_search_cache").upsert(
-                {
-                    "cache_key": cache_key,
-                    "query": response["query"],
-                    "response": response,
-                    "created_at": response["created_at"],
-                }
-            ).execute()
-        except Exception as e:
-            # Cache errors should not break search
-            raise CacheError(f"Failed to store in cache: {e}", provider="supabase")
-
-    async def _delete_from_supabase(self, cache_key: str) -> None:
-        """Delete expired entry from Supabase cache.
-
-        Args:
-            cache_key: Cache key
-        """
-        if not self.supabase:
-            return
-
-        try:
-            self.supabase.table("web_search_cache").delete().eq(
-                "cache_key", cache_key
-            ).execute()
-        except Exception:
-            # Ignore deletion errors
-            pass
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.

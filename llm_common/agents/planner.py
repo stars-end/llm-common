@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Any
 from .schemas import ExecutionPlan, PlannedTask
-from llm_common.core import LLMClient
+from llm_common.core import LLMClient, LLMMessage
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,8 @@ class TaskPlanner:
 
             response = await self.client.chat_completion(
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg}
+                    LLMMessage(role="system", content=system_prompt),
+                    LLMMessage(role="user", content=user_msg)
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.0

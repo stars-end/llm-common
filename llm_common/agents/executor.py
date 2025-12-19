@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import List, Dict, Any
-from .schemas import PlannedTask, SubTaskResult, ToolCall
+from .schemas import PlannedTask, SubTaskResult, ToolCall, ExecutionPlan
 from llm_common.core import LLMClient
 # from .tool_context import ToolContextManager # Assumed to exist or we mock it for now
 from llm_common.agents.tool_context import ToolContextManager # It exists in file list
@@ -18,6 +18,24 @@ class AgenticExecutor:
         self.client = client
         self.registry = tool_registry
         self.context_manager = context_manager
+
+    async def execute_plan(self, plan: ExecutionPlan, query_id: str) -> List[SubTaskResult]:
+        """
+        Execute an entire plan by running each task sequentially.
+        Tools within each task are executed in parallel.
+        """
+        logger.info(f"Starting execution of plan with {len(plan.tasks)} tasks.")
+        all_results = []
+        
+        for task in plan.tasks:
+            result = await self.execute_task(task, query_id)
+            all_results.append(result)
+            
+            if not result.success:
+                logger.error(f"Execution halted due to failure in task {task.id}")
+                break
+                
+        return all_results
 
     async def execute_task(self, task: PlannedTask, query_id: str) -> SubTaskResult:
         """
