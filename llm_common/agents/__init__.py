@@ -1,45 +1,33 @@
-"""E2E Smoke Agent package for LLM-powered UI testing.
+"""Agents module for llm-common."""
 
-This module provides:
-- UISmokeAgent: Core agent that drives browser via vision LLM
-- GLMVisionClient: Z.AI GLM-4.6V client with vision + tool calling
-- Story loader and models for test specification
-"""
-
-from .exceptions import AgentError, ElementNotFoundError, NavigationError
-from .glm_client import BROWSER_TOOLS, GLMConfig, GLMVisionClient
-from .models import (
-    AgentErrorData,
-    GLMResponse,
-    SmokeRunReport,
-    StepResult,
-    Story,
-    StoryResult,
-    StoryStep,
+from llm_common.agents.schemas import (
+    SubTask,
+    PlannedTask,
+    ExecutionPlan,
+    ToolCall,
+    SubTaskResult,
 )
-from .story_loader import load_stories_from_directory, load_story
-from .ui_smoke_agent import UISmokeAgent
+from llm_common.agents.planner import TaskPlanner
+from llm_common.agents.executor import AgenticExecutor
+from llm_common.agents.tool_context import ToolContextManager
+from llm_common.agents.research_agent import ResearchAgent
+from llm_common.agents.ui_smoke_agent import UISmokeAgent, BrowserAdapter
+from llm_common.agents.utils import load_stories_from_directory
+from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
 
 __all__ = [
-    # Exceptions
-    "AgentError",
-    "NavigationError",
-    "ElementNotFoundError",
-    # GLM Client
+    "SubTask",
+    "PlannedTask",
+    "ExecutionPlan",
+    "ToolCall",
+    "SubTaskResult",
+    "TaskPlanner",
+    "AgenticExecutor",
+    "ToolContextManager",
+    "ResearchAgent",
+    "UISmokeAgent",
+    "BrowserAdapter",
+    "load_stories_from_directory",
     "GLMConfig",
     "GLMVisionClient",
-    "GLMResponse",
-    "BROWSER_TOOLS",
-    # Models
-    "AgentErrorData",
-    "StepResult",
-    "StoryResult",
-    "SmokeRunReport",
-    "Story",
-    "StoryStep",
-    # Loaders
-    "load_story",
-    "load_stories_from_directory",
-    # Agent
-    "UISmokeAgent",
 ]

@@ -121,10 +121,14 @@ class OpenRouterClient(LLMClient):
             latency_ms = int((time.time() - start_time) * 1000)
 
             # Calculate actual cost from OpenRouter's response if available
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
+            total_tokens = response.usage.total_tokens if response.usage else 0
+
             usage = LLMUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
             )
 
             # Try to get actual cost from OpenRouter's metadata

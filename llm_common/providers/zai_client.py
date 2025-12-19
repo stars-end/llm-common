@@ -29,7 +29,7 @@ from llm_common.core import (
 class ZaiClient(LLMClient):
     """z.ai LLM client with OpenAI compatibility."""
 
-    BASE_URL = "https://open.z.ai/api/v1"
+    BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
@@ -253,3 +253,15 @@ class ZaiClient(LLMClient):
         output_cost = (usage.completion_tokens / 1_000_000) * pricing["output"]
 
         return input_cost + output_cost
+
+class GLMConfig(LLMConfig):
+    """Alias for GLM-specific configuration."""
+    def __init__(self, api_key: str, model: str = "glm-4.6", **kwargs: Any):
+        super().__init__(api_key=api_key, default_model=model, provider="zai", **kwargs)
+
+class GLMVisionClient(ZaiClient):
+    """Alias for ZAI client when used for vision tasks."""
+    @property
+    def total_tokens_used(self) -> int:
+        # For compatibility with prime-radiant-ai usage
+        return self._total_request_tokens if hasattr(self, "_total_request_tokens") else 0

@@ -23,7 +23,7 @@ class LLMMessage(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     role: MessageRole
-    content: str
+    content: str | list[dict[str, Any]]
     name: Optional[str] = None
     function_call: Optional[dict[str, Any]] = None
     tool_calls: Optional[list[dict[str, Any]]] = None

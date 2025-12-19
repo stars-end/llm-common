@@ -52,7 +52,6 @@ from llm_common.web_search import WebSearchClient
 
 search = WebSearchClient(
     zai_api_key="your-zai-key",
-    cache_backend="supabase",  # or "memory"
     cache_ttl=86400  # 24 hours
 )
 
