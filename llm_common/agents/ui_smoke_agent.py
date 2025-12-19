@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Union
 
@@ -71,10 +72,11 @@ class UISmokeAgent:
         for step_data in story.steps:
             step_id = step_data.get("id", "unknown")
             description = step_data.get("description", "")
+            validation_criteria = step_data.get("validation_criteria", [])
             logger.info(f"  Step: {step_id} - {description}")
             
             start_time = time.time()
-            step_result = await self._run_step(story.persona, step_id, description)
+            step_result = await self._run_step(story.persona, step_id, description, validation_criteria)
             step_result.duration_ms = int((time.time() - start_time) * 1000)
             
             step_results.append(step_result)
@@ -92,7 +94,7 @@ class UISmokeAgent:
             errors=story_errors
         )
 
-    async def _run_step(self, persona: str, step_id: str, description: str) -> StepResult:
+    async def _run_step(self, persona: str, step_id: str, description: str, validation_criteria: List[str] = None) -> StepResult:
         """Run a single step of a story."""
         actions_taken = []
         errors = []
@@ -105,6 +107,7 @@ class UISmokeAgent:
             # Check for infrastructure errors
             console = await self.browser.get_console_errors()
             for msg in console:
+                logger.warning(f"  ⚠️ Browser Console: {msg}")
                 errors.append(AgentError(type="console_error", severity="medium", message=msg, url=current_url))
                 
             network = await self.browser.get_network_errors()
@@ -112,13 +115,37 @@ class UISmokeAgent:
                 severity = "high" if str(err.get("status", "")).startswith("5") else "medium"
                 errors.append(AgentError(type="network_error", severity=severity, message=f"{err.get('method')} {err.get('url')}: {err.get('message')}", url=current_url))
 
+            # DEBUG: Save state before LLM call to diagnose Safety/Blank issues
+            if self.evidence_dir:
+                try:
+                    import base64
+                    timestamp = int(time.time())
+                    debug_prefix = f"debug_{step_id}_{i}_{timestamp}"
+                    
+                    # Save HTML
+                    html_content = await self.browser.get_content()
+                    with open(self.evidence_dir / f"{debug_prefix}.html", "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    
+                    # Save Screenshot
+                    with open(self.evidence_dir / f"{debug_prefix}.png", "wb") as f:
+                        f.write(base64.b64decode(screenshot_b64))
+                        
+                    logger.info(f"  🔍 Debug evidence saved: {debug_prefix}")
+                except Exception as e:
+                    logger.warning(f"Failed to save debug evidence: {e}")
+
             # 2. Build prompt
             prompt = f"Step: {description}\nCurrent URL: {current_url}\nGoal: Complete the step described above."
             
+            validation_msg = ""
+            if validation_criteria:
+                validation_msg = "\n\nSTRICT VERIFICATION REQUIRED:\nThe screenshot MUST contain the following text fragments. If ANY are missing, the step is NOT complete and you MUST NOT call complete_step:\n" + "\n".join([f"- \"{t}\"" for t in validation_criteria])
+
             messages = [
                 LLMMessage(
                     role=MessageRole.SYSTEM, 
-                    content=f"You are a QA Agent. Persona: {persona}. Your goal is to complete the user story step. Use the available tools to interact with the page."
+                    content=f"You are a QA Agent. Persona: {persona}. Your goal is to complete the user story step. Use the available tools to interact with the page.\n\nCRITICAL: If the screenshot is blank, black, or essential data is missing, YOU MUST NOT call complete_step.{validation_msg}\nInstead, try to wait or navigate again. If the page remains blank or verification fails after retries, fail the step by not calling complete_step and letting the loop finish."
                 ),
                 LLMMessage(
                     role=MessageRole.USER,
@@ -173,6 +200,18 @@ class UISmokeAgent:
                 {
                     "type": "function",
                     "function": {
+                        "name": "wait",
+                        "description": "Wait for a specified number of seconds (use if page is loading or blank)",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"seconds": {"type": "integer"}},
+                            "required": ["seconds"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
                         "name": "complete_step",
                         "description": "Call this when the step goal is achieved",
                         "parameters": {"type": "object", "properties": {}}
@@ -180,13 +219,36 @@ class UISmokeAgent:
                 }
             ]
             
-            # 3. Call LLM
+            # 3. Call LLM (Vision model - try GLM-4.5v if 4.6v hits safety)
             # Note: We use raw_response from metadata to get tool calls if not mapped in core LLMResponse
-            response = await self.llm.chat_completion(
-                messages=messages,
-                tools=tools,
-                tool_choice="auto"
-            )
+            try:
+                response = await self.llm.chat_completion(
+                    messages=messages,
+                    model="glm-4.6v",  # Explicit vision model
+                    tools=tools,
+                    tool_choice="auto",
+                    extra_body={"thinking": {"type": "enabled"}}
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if "safety" in error_msg.lower() or "1301" in error_msg or "1214" in error_msg:
+                    logger.warning(f"GLM-4.6v safety/error triggered, trying GLM-4.5v: {e}")
+                    try:
+                        response = await self.llm.chat_completion(
+                            messages=messages,
+                            model="glm-4.5v",  # Fallback vision model
+                            tools=tools,
+                            tool_choice="auto",
+                            extra_body={"thinking": {"type": "enabled"}}
+                        )
+                    except Exception as e2:
+                        logger.error(f"GLM-4.5v also failed: {e2}")
+                        errors.append(AgentError(type="llm_error", severity="high", message=str(e2), url=current_url))
+                        continue
+                else:
+                    logger.error(f"LLM call failed: {e}")
+                    errors.append(AgentError(type="llm_error", severity="high", message=error_msg, url=current_url))
+                    continue
             
             # 4. Handle Tool Calls
             # The current ZaiClient doesn't automatically map tool_calls to LLMResponse yet
@@ -224,6 +286,16 @@ class UISmokeAgent:
                         filepath = self.evidence_dir / filename
                         with open(filepath, "wb") as f:
                             f.write(base64.b64decode(final_screenshot))
+                        
+                        # Save HTML content for debugging
+                        try:
+                            content = await self.browser.get_content()
+                            html_path = self.evidence_dir / f"{step_id}.html"
+                            with open(html_path, "w", encoding="utf-8") as f:
+                                f.write(content)
+                        except Exception as e:
+                            logger.warning(f"Failed to save HTML source: {e}")
+
                         logger.info(f"  📸 Evidence saved: {filepath}")
                         
                     return StepResult(step_id=step_id, status="pass", actions_taken=actions_taken, errors=errors)
@@ -235,6 +307,10 @@ class UISmokeAgent:
                         await self.browser.click(args.get("target", ""))
                     elif name == "type_text":
                         await self.browser.type_text(args.get("selector", ""), args.get("text", ""))
+                    elif name == "wait":
+                        seconds = args.get("seconds", 2)
+                        logger.info(f"  ⏳ Waiting for {seconds} seconds...")
+                        await asyncio.sleep(seconds)
                 except Exception as e:
                     logger.error(f"  ❌ Tool error ({name}): {e}")
                     errors.append(AgentError(type="ui_error", severity="medium", message=str(e), url=current_url))

@@ -34,7 +34,7 @@ class AgentStory(BaseModel):
     """User story for smoke tests."""
     id: str
     persona: str
-    steps: List[Dict[str, Any]]
+    steps: List[Dict[str, Any]]  # Expected keys: id, description, validation_criteria (Optional[List[str]])
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class AgentError(BaseModel):
