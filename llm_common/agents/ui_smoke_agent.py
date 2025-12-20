@@ -232,7 +232,8 @@ class UISmokeAgent:
             except Exception as e:
                 error_msg = str(e)
                 if "safety" in error_msg.lower() or "1301" in error_msg or "1214" in error_msg:
-                    logger.warning(f"GLM-4.6v safety/error triggered, trying GLM-4.5v: {e}")
+                    logger.warning(f"GLM-4.6v safety/error triggered, backoff 5s then trying GLM-4.5v: {e}")
+                    await asyncio.sleep(5)
                     try:
                         response = await self.llm.chat_completion(
                             messages=messages,
@@ -242,7 +243,8 @@ class UISmokeAgent:
                             extra_body={"thinking": {"type": "enabled"}}
                         )
                     except Exception as e2:
-                        logger.error(f"GLM-4.5v also failed: {e2}")
+                        logger.error(f"GLM-4.5v also failed, backoff 10s: {e2}")
+                        await asyncio.sleep(10)
                         errors.append(AgentError(type="llm_error", severity="high", message=str(e2), url=current_url))
                         continue
                 else:
@@ -276,12 +278,16 @@ class UISmokeAgent:
                 actions_taken.append({"tool": name, "args": args})
                 
                 if name == "complete_step":
-                    logger.info(f"  ✅ Step {step_id} marked complete by agent.")
+                    logger.info(f"  ✅ Step {step_id} marked complete by agent. Running strict verification...")
+                    
+                    final_screenshot = await self.browser.screenshot()
+                    
+                    # P0 FIX (r7p): Strict Visual Verification
+                    verified = await self._verify_completion(final_screenshot, validation_criteria)
                     
                     # Capture final evidence if configured
                     if self.evidence_dir:
                         import base64
-                        final_screenshot = await self.browser.screenshot()
                         filename = f"{step_id}.png"
                         filepath = self.evidence_dir / filename
                         with open(filepath, "wb") as f:
@@ -297,6 +303,11 @@ class UISmokeAgent:
                             logger.warning(f"Failed to save HTML source: {e}")
 
                         logger.info(f"  📸 Evidence saved: {filepath}")
+                    
+                    if not verified:
+                        logger.error(f"  ❌ Verification failed for {step_id}. Continuing loop/failing.")
+                        errors.append(AgentError(type="verification_error", severity="high", message="Strict verification failed: required text not found in final screenshot", url=current_url))
+                        continue
                         
                     return StepResult(step_id=step_id, status="pass", actions_taken=actions_taken, errors=errors)
                 
@@ -316,3 +327,44 @@ class UISmokeAgent:
                     errors.append(AgentError(type="ui_error", severity="medium", message=str(e), url=current_url))
 
         return StepResult(step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors)
+
+    async def _verify_completion(self, screenshot_b64: str, validation_criteria: List[str]) -> bool:
+        """Strictly verify that required markers are present in the final screenshot (P0: affordabot-r7p)."""
+        if not validation_criteria:
+            return True
+            
+        prompt = "EXACT TEXT EXTRACTION TASK:\nExtract all visible text, numbers, and labels from this UI screenshot. Provide a clean list of text fragments you see. If the image is blank or black, say 'EMPTY'."
+        
+        try:
+            response = await self.llm.chat_completion(
+                messages=[
+                    LLMMessage(role=MessageRole.SYSTEM, content="You are a precise OCR agent. Extract all text exactly as shown. No conversational filler."),
+                    LLMMessage(role=MessageRole.USER, content=[
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}}
+                    ])
+                ],
+                model="glm-4.5v", # Use 4.5v for extraction
+                temperature=0.0
+            )
+            
+            extracted_text = response.content.lower()
+            if "empty" in extracted_text and len(extracted_text) < 20:
+                logger.warning("  ❌ Verification failed: Screenshot is reported as EMPTY.")
+                return False
+
+            missing = []
+            for criterion in validation_criteria:
+                # Basic fuzzy check (lowercase, stripped)
+                if criterion.lower().strip() not in extracted_text:
+                    missing.append(criterion)
+            
+            if missing:
+                logger.warning(f"  ❌ VERIFICATION FAILED. Missing markers: {missing}")
+                return False
+                
+            logger.info("  ✅ VERIFICATION PASSED. All criteria found in screenshot.")
+            return True
+        except Exception as e:
+            logger.error(f"Verification call failed: {e}")
+            return False # Fail safe on error
