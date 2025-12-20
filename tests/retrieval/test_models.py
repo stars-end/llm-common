@@ -8,11 +8,7 @@ from llm_common.retrieval.models import RetrievedChunk
 
 def test_retrieved_chunk_basic_creation() -> None:
     """Test basic creation of RetrievedChunk."""
-    chunk = RetrievedChunk(
-        content="This is a test chunk",
-        score=0.95,
-        source="test_document.txt"
-    )
+    chunk = RetrievedChunk(content="This is a test chunk", score=0.95, source="test_document.txt")
 
     assert chunk.content == "This is a test chunk"
     assert chunk.score == 0.95
@@ -30,7 +26,7 @@ def test_retrieved_chunk_with_metadata() -> None:
         score=0.88,
         source="document.pdf",
         metadata=metadata,
-        chunk_id="chunk_123"
+        chunk_id="chunk_123",
     )
 
     assert chunk.metadata == metadata
@@ -41,10 +37,7 @@ def test_retrieved_chunk_with_embedding() -> None:
     """Test RetrievedChunk with embedding vector."""
     embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
     chunk = RetrievedChunk(
-        content="Content with embedding",
-        score=0.92,
-        source="embedded_doc.txt",
-        embedding=embedding
+        content="Content with embedding", score=0.92, source="embedded_doc.txt", embedding=embedding
     )
 
     assert chunk.embedding == embedding
@@ -79,11 +72,7 @@ def test_retrieved_chunk_required_fields() -> None:
 
 def test_retrieved_chunk_str_representation() -> None:
     """Test string representation of RetrievedChunk."""
-    chunk = RetrievedChunk(
-        content="Short content",
-        score=0.85,
-        source="test.txt"
-    )
+    chunk = RetrievedChunk(content="Short content", score=0.85, source="test.txt")
 
     str_repr = str(chunk)
     assert "test.txt" in str_repr
@@ -94,11 +83,7 @@ def test_retrieved_chunk_str_representation() -> None:
 def test_retrieved_chunk_str_representation_long_content() -> None:
     """Test string representation with long content is truncated."""
     long_content = "A" * 200
-    chunk = RetrievedChunk(
-        content=long_content,
-        score=0.75,
-        source="long.txt"
-    )
+    chunk = RetrievedChunk(content=long_content, score=0.75, source="long.txt")
 
     str_repr = str(chunk)
     assert "..." in str_repr
@@ -107,12 +92,7 @@ def test_retrieved_chunk_str_representation_long_content() -> None:
 
 def test_retrieved_chunk_repr() -> None:
     """Test detailed repr of RetrievedChunk."""
-    chunk = RetrievedChunk(
-        content="Test content",
-        score=0.9,
-        source="test.txt",
-        chunk_id="abc123"
-    )
+    chunk = RetrievedChunk(content="Test content", score=0.9, source="test.txt", chunk_id="abc123")
 
     repr_str = repr(chunk)
     assert "RetrievedChunk" in repr_str
@@ -129,7 +109,7 @@ def test_retrieved_chunk_json_serialization() -> None:
         score=0.88,
         source="json.txt",
         metadata={"key": "value"},
-        chunk_id="json_123"
+        chunk_id="json_123",
     )
 
     # Serialize to JSON
@@ -148,10 +128,7 @@ def test_retrieved_chunk_json_serialization() -> None:
 def test_retrieved_chunk_dict_conversion() -> None:
     """Test conversion to and from dictionary."""
     original = RetrievedChunk(
-        content="Dict test",
-        score=0.77,
-        source="dict.txt",
-        metadata={"nested": {"key": "value"}}
+        content="Dict test", score=0.77, source="dict.txt", metadata={"nested": {"key": "value"}}
     )
 
     # Convert to dict

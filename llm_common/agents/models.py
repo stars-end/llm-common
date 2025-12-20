@@ -1,12 +1,13 @@
 """Data models for E2E Smoke Agent."""
 
 from dataclasses import dataclass, field
-from typing import Literal, Any
+from typing import Literal
 
 
 @dataclass
 class AgentErrorData:
     """Error detected during smoke test execution."""
+
     type: str  # ui_error, api_5xx, console_error, navigation_error, etc.
     severity: Literal["blocker", "high", "medium", "low"]
     message: str
@@ -17,6 +18,7 @@ class AgentErrorData:
 @dataclass
 class StepResult:
     """Result of executing a single story step."""
+
     step_id: str
     status: Literal["pass", "fail", "skip"]
     actions_taken: list[dict] = field(default_factory=list)
@@ -27,6 +29,7 @@ class StepResult:
 @dataclass
 class StoryResult:
     """Result of executing a complete story."""
+
     story_id: str
     status: Literal["pass", "fail"]
     step_results: list[StepResult] = field(default_factory=list)
@@ -36,6 +39,7 @@ class StoryResult:
 @dataclass
 class SmokeRunReport:
     """Complete smoke test run report."""
+
     run_id: str
     environment: str
     base_url: str
@@ -49,6 +53,7 @@ class SmokeRunReport:
 @dataclass
 class StoryStep:
     """A single step in a user story."""
+
     id: str
     description: str
     exploration_budget: int = 0
@@ -57,6 +62,7 @@ class StoryStep:
 @dataclass
 class Story:
     """User story specification."""
+
     id: str
     persona: str
     steps: list[StoryStep]
@@ -66,6 +72,7 @@ class Story:
 @dataclass
 class GLMResponse:
     """Response from GLM API."""
+
     content: str | None
     tool_calls: list[dict] | None
     finish_reason: str

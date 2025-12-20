@@ -1,7 +1,8 @@
 """OpenRouter LLM client implementation."""
 
 import time
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from openai import AsyncOpenAI
@@ -76,9 +77,9 @@ class OpenRouterClient(LLMClient):
     async def chat_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Send chat completion request to OpenRouter.
@@ -110,9 +111,7 @@ class OpenRouterClient(LLMClient):
         try:
             response = await self.client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
-                ],
+                messages=[{"role": msg.role, "content": msg.content} for msg in messages],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 **kwargs,
@@ -132,9 +131,7 @@ class OpenRouterClient(LLMClient):
             )
 
             # Try to get actual cost from OpenRouter's metadata
-            cost = self._extract_cost_from_response(response) or self._calculate_cost(
-                model, usage
-            )
+            cost = self._extract_cost_from_response(response) or self._calculate_cost(model, usage)
 
             # Track metrics
             if self.config.track_costs:
@@ -165,9 +162,9 @@ class OpenRouterClient(LLMClient):
     async def stream_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream chat completion response from OpenRouter.
@@ -197,9 +194,7 @@ class OpenRouterClient(LLMClient):
         try:
             stream = await self.client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
-                ],
+                messages=[{"role": msg.role, "content": msg.content} for msg in messages],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
@@ -277,7 +272,7 @@ class OpenRouterClient(LLMClient):
 
         return input_cost + output_cost
 
-    def _extract_cost_from_response(self, response: Any) -> Optional[float]:
+    def _extract_cost_from_response(self, response: Any) -> float | None:
         """Extract actual cost from OpenRouter's response metadata.
 
         OpenRouter includes cost information in the response headers/metadata.

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GLMConfig:
     """Configuration for GLM client."""
+
     api_key: str | None = None
     model: str = "glm-4.6v"
     base_url: str = "https://api.z.ai/api/coding/paas/v4"
@@ -128,18 +129,18 @@ class GLMVisionClient:
             messages.append({"role": "system", "content": system_prompt})
 
         # Build user message with text and image
-        messages.append({
-            "role": "user",
-            "content": [
-                {"type": "text", "text": text},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{image_base64}"
-                    }
-                }
-            ]
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": text},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                    },
+                ],
+            }
+        )
 
         return await self.chat(messages, tools=tools, tool_choice=tool_choice)
 
@@ -161,12 +162,12 @@ BROWSER_TOOLS = [
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "URL path like /dashboard or /advisor"
+                        "description": "URL path like /dashboard or /advisor",
                     }
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -178,12 +179,12 @@ BROWSER_TOOLS = [
                 "properties": {
                     "target": {
                         "type": "string",
-                        "description": "CSS selector (e.g., '#submit-btn') or text='Button Text'"
+                        "description": "CSS selector (e.g., '#submit-btn') or text='Button Text'",
                     }
                 },
-                "required": ["target"]
-            }
-        }
+                "required": ["target"],
+            },
+        },
     },
     {
         "type": "function",
@@ -195,16 +196,13 @@ BROWSER_TOOLS = [
                 "properties": {
                     "selector": {
                         "type": "string",
-                        "description": "CSS selector for the input field"
+                        "description": "CSS selector for the input field",
                     },
-                    "text": {
-                        "type": "string",
-                        "description": "Text to type"
-                    }
+                    "text": {"type": "string", "description": "Text to type"},
                 },
-                "required": ["selector", "text"]
-            }
-        }
+                "required": ["selector", "text"],
+            },
+        },
     },
     {
         "type": "function",
@@ -214,18 +212,15 @@ BROWSER_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "selector": {
-                        "type": "string",
-                        "description": "CSS selector to wait for"
-                    },
+                    "selector": {"type": "string", "description": "CSS selector to wait for"},
                     "timeout_ms": {
                         "type": "integer",
-                        "description": "Max wait time in milliseconds (default: 5000)"
-                    }
+                        "description": "Max wait time in milliseconds (default: 5000)",
+                    },
                 },
-                "required": ["selector"]
-            }
-        }
+                "required": ["selector"],
+            },
+        },
     },
     {
         "type": "function",
@@ -237,11 +232,11 @@ BROWSER_TOOLS = [
                 "properties": {
                     "notes": {
                         "type": "string",
-                        "description": "Optional notes about step completion"
+                        "description": "Optional notes about step completion",
                     }
-                }
-            }
-        }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -253,21 +248,24 @@ BROWSER_TOOLS = [
                 "properties": {
                     "type": {
                         "type": "string",
-                        "enum": ["ui_error", "api_error", "data_mismatch", "navigation_error", "other"],
-                        "description": "Type of error"
+                        "enum": [
+                            "ui_error",
+                            "api_error",
+                            "data_mismatch",
+                            "navigation_error",
+                            "other",
+                        ],
+                        "description": "Type of error",
                     },
                     "severity": {
                         "type": "string",
                         "enum": ["blocker", "high", "medium", "low"],
-                        "description": "Severity level"
+                        "description": "Severity level",
                     },
-                    "message": {
-                        "type": "string",
-                        "description": "Description of the error"
-                    }
+                    "message": {"type": "string", "description": "Description of the error"},
                 },
-                "required": ["type", "severity", "message"]
-            }
-        }
-    }
+                "required": ["type", "severity", "message"],
+            },
+        },
+    },
 ]

@@ -52,11 +52,13 @@ def load_story(path: Path) -> Story:
     # Handle old format with goals instead of steps
     if not steps and "goals" in data:
         for i, goal in enumerate(data["goals"]):
-            steps.append(StoryStep(
-                id=f"goal-{i+1}",
-                description=str(goal),
-                exploration_budget=1,
-            ))
+            steps.append(
+                StoryStep(
+                    id=f"goal-{i+1}",
+                    description=str(goal),
+                    exploration_budget=1,
+                )
+            )
 
     metadata = data.get("metadata", {})
     # Also extract other metadata fields from old format

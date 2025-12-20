@@ -3,13 +3,13 @@
 import hashlib
 import json
 import time
-from datetime import datetime, timedelta
-from typing import Any, Literal, Optional
+from datetime import datetime
+from typing import Any
 
 import httpx
 from cachetools import TTLCache
 
-from llm_common.core import CacheError, LLMError, WebSearchResponse, WebSearchResult
+from llm_common.core import LLMError, WebSearchResponse, WebSearchResult
 
 
 class WebSearchClient:
@@ -52,8 +52,8 @@ class WebSearchClient:
         self,
         query: str,
         count: int = 10,
-        domains: Optional[list[str]] = None,
-        recency: Optional[str] = None,
+        domains: list[str] | None = None,
+        recency: str | None = None,
         **kwargs: Any,
     ) -> WebSearchResponse:
         """Perform web search with caching.
@@ -140,7 +140,9 @@ class WebSearchClient:
             return search_response
 
         except httpx.HTTPStatusError as e:
-            raise LLMError(f"Search failed with status {e.response.status_code}: {e}", provider="zai")
+            raise LLMError(
+                f"Search failed with status {e.response.status_code}: {e}", provider="zai"
+            )
         except Exception as e:
             raise LLMError(f"Search failed: {e}", provider="zai")
 
@@ -148,8 +150,8 @@ class WebSearchClient:
         self,
         query: str,
         count: int,
-        domains: Optional[list[str]],
-        recency: Optional[str],
+        domains: list[str] | None,
+        recency: str | None,
         kwargs: dict[str, Any],
     ) -> str:
         """Generate cache key from search parameters.
@@ -181,9 +183,7 @@ class WebSearchClient:
         Returns:
             Cache statistics including hit rate and cost savings
         """
-        hit_rate = (
-            self._cache_hits / self._total_searches if self._total_searches > 0 else 0.0
-        )
+        hit_rate = self._cache_hits / self._total_searches if self._total_searches > 0 else 0.0
 
         # Calculate cost savings from cache hits
         saved_cost = self._cache_hits * self.COST_PER_SEARCH

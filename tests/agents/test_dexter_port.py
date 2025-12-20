@@ -1,9 +1,12 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from llm_common.agents.planner import TaskPlanner
+
+import pytest
+
 from llm_common.agents.executor import AgenticExecutor
-from llm_common.agents.schemas import ExecutionPlan, PlannedTask, ToolCall, SubTask
+from llm_common.agents.planner import TaskPlanner
+from llm_common.agents.schemas import ExecutionPlan, PlannedTask, SubTask
 from llm_common.agents.tool_context import ToolContextManager
+
 
 @pytest.mark.asyncio
 async def test_planner_generates_plan():
@@ -32,6 +35,7 @@ async def test_planner_generates_plan():
     assert plan.tasks[0].description == "Research Apple"
     assert plan.tasks[0].sub_tasks[0].description == "Get stock price"
 
+
 @pytest.mark.asyncio
 async def test_executor_runs_tools():
     # Mock LLM Client for tool resolution
@@ -55,11 +59,8 @@ async def test_executor_runs_tools():
     mock_ctx = AsyncMock(spec=ToolContextManager)
 
     executor = AgenticExecutor(mock_client, mock_registry, mock_ctx)
-    
-    task = PlannedTask(
-        id=1, description="Task 1", 
-        sub_tasks=[SubTask(id=1, description="sub")]
-    )
+
+    task = PlannedTask(id=1, description="Task 1", sub_tasks=[SubTask(id=1, description="sub")])
 
     result = await executor.execute_task(task, "q-1")
 
@@ -69,6 +70,7 @@ async def test_executor_runs_tools():
     mock_registry.execute.assert_called_with("get_price", {"ticker": "AAPL"})
     # Check context saved
     mock_ctx.save_context.assert_called()
+
 
 @pytest.mark.asyncio
 async def test_executor_runs_plan():
@@ -88,10 +90,12 @@ async def test_executor_runs_plan():
 
     executor = AgenticExecutor(mock_client, mock_registry, mock_ctx)
 
-    plan = ExecutionPlan(tasks=[
-        PlannedTask(id=1, description="Task 1", sub_tasks=[SubTask(id=1, description="st")]),
-        PlannedTask(id=2, description="Task 2", sub_tasks=[SubTask(id=2, description="st")])
-    ])
+    plan = ExecutionPlan(
+        tasks=[
+            PlannedTask(id=1, description="Task 1", sub_tasks=[SubTask(id=1, description="st")]),
+            PlannedTask(id=2, description="Task 2", sub_tasks=[SubTask(id=2, description="st")]),
+        ]
+    )
 
     results = await executor.execute_plan(plan, "q-1")
 

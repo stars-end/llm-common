@@ -1,7 +1,6 @@
 """Base interface for retrieval backends."""
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from llm_common.retrieval.models import RetrievedChunk
 
@@ -33,8 +32,8 @@ class RetrievalBackend(ABC):
         self,
         query: str,
         top_k: int = 5,
-        min_score: Optional[float] = None,
-        filters: Optional[dict[str, any]] = None,
+        min_score: float | None = None,
+        filters: dict[str, any] | None = None,
     ) -> list[RetrievedChunk]:
         """Retrieve relevant chunks for a query.
 
@@ -67,7 +66,7 @@ class RetrievalBackend(ABC):
         except Exception:
             return False
 
-    async def get_by_id(self, chunk_id: str) -> Optional[RetrievedChunk]:
+    async def get_by_id(self, chunk_id: str) -> RetrievedChunk | None:
         """Retrieve a specific chunk by its ID.
 
         Args:
