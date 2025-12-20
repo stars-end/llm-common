@@ -7,10 +7,9 @@ from llm_common import WebSearchClient
 
 def test_web_search_client_initialization():
     """Test WebSearchClient initializes correctly."""
-    client = WebSearchClient(api_key="test-key", cache_backend="memory", cache_ttl=3600)
+    client = WebSearchClient(api_key="test-key", cache_ttl=3600)
 
     assert client.api_key == "test-key"
-    assert client.cache_backend == "memory"
     assert client.cache_ttl == 3600
     assert client._total_searches == 0
     assert client._cache_hits == 0
@@ -98,7 +97,7 @@ def test_reset_stats():
 @pytest.mark.asyncio
 async def test_search_with_mock(mocker):
     """Test search with mocked HTTP client."""
-    client = WebSearchClient(api_key="test-key", cache_backend="memory")
+    client = WebSearchClient(api_key="test-key")
 
     # Mock HTTP response
     mock_response = mocker.MagicMock()
@@ -133,7 +132,7 @@ async def test_search_with_mock(mocker):
 @pytest.mark.asyncio
 async def test_search_caching(mocker):
     """Test that searches are cached."""
-    client = WebSearchClient(api_key="test-key", cache_backend="memory")
+    client = WebSearchClient(api_key="test-key")
 
     # Mock HTTP response
     mock_response = mocker.MagicMock()
