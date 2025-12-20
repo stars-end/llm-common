@@ -171,13 +171,9 @@ async def test_zai_chat_completion_mock(mocker):
     mock_response.id = "test-123"
     mock_response.model = "glm-4.5"
     mock_response.choices = [
-        mocker.MagicMock(
-            message=mocker.MagicMock(content="Test response"), finish_reason="stop"
-        )
+        mocker.MagicMock(message=mocker.MagicMock(content="Test response"), finish_reason="stop")
     ]
-    mock_response.usage = mocker.MagicMock(
-        prompt_tokens=10, completion_tokens=20, total_tokens=30
-    )
+    mock_response.usage = mocker.MagicMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
     mock_response.model_dump = lambda: {}
 
     # Use AsyncMock for async method

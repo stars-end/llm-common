@@ -1,7 +1,7 @@
 """Abstract LLM client interface."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from llm_common.core.models import LLMConfig, LLMMessage, LLMResponse
 
@@ -23,9 +23,9 @@ class LLMClient(ABC):
     async def chat_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Send chat completion request.
@@ -50,9 +50,9 @@ class LLMClient(ABC):
     async def stream_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> Any:
         """Stream chat completion response.

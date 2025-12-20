@@ -3,17 +3,21 @@
 Uses mocks to avoid requiring a real database connection in CI.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Mock imports for optional dependencies
 pytest.importorskip("sqlalchemy")
 pytest.importorskip("asyncpg")
 pytest.importorskip("pgvector")
 
-from llm_common.retrieval.backends.pg_backend import PgVectorBackend, create_pg_backend
-from llm_common.retrieval.models import RetrievedChunk
+from llm_common.retrieval.backends.pg_backend import (  # noqa: E402
+    PgVectorBackend,
+    create_pg_backend,
+)
+from llm_common.retrieval.models import RetrievedChunk  # noqa: E402
 
 
 @pytest.fixture
@@ -133,9 +137,7 @@ async def test_retrieve_with_filters(backend, mock_engine):
     mock_engine.begin.return_value.__aexit__.return_value = None
 
     # Execute with filters
-    await backend.retrieve(
-        "test query", top_k=5, filters={"section": "intro", "category": "docs"}
-    )
+    await backend.retrieve("test query", top_k=5, filters={"section": "intro", "category": "docs"})
 
     # Verify execute was called with filters
     mock_conn.execute.assert_called_once()

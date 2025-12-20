@@ -1,6 +1,7 @@
 """Data models for retrieval operations."""
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -23,14 +24,10 @@ class RetrievedChunk(BaseModel):
     score: float = Field(..., description="Relevance score (0.0 to 1.0)", ge=0.0, le=1.0)
     source: str = Field(..., description="Source identifier for the document")
     metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the chunk"
+        default_factory=dict, description="Additional metadata about the chunk"
     )
-    chunk_id: Optional[str] = Field(None, description="Unique identifier for this chunk")
-    embedding: Optional[list[float]] = Field(
-        None,
-        description="Embedding vector for this chunk"
-    )
+    chunk_id: str | None = Field(None, description="Unique identifier for this chunk")
+    embedding: list[float] | None = Field(None, description="Embedding vector for this chunk")
 
     def __str__(self) -> str:
         """Human-readable string representation."""

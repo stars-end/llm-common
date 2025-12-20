@@ -7,9 +7,7 @@ from llm_common import WebSearchClient
 
 def test_web_search_client_initialization():
     """Test WebSearchClient initializes correctly."""
-    client = WebSearchClient(
-        api_key="test-key", cache_backend="memory", cache_ttl=3600
-    )
+    client = WebSearchClient(api_key="test-key", cache_backend="memory", cache_ttl=3600)
 
     assert client.api_key == "test-key"
     assert client.cache_backend == "memory"

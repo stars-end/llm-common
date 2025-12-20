@@ -115,11 +115,7 @@ async def basic_retrieval_example() -> None:
 
     # Query 2: With filtering
     print("\n\nQuery: 'embeddings' (filter: section='concepts')")
-    results = await backend.retrieve(
-        "embeddings",
-        top_k=5,
-        filters={"section": "concepts"}
-    )
+    results = await backend.retrieve("embeddings", top_k=5, filters={"section": "concepts"})
 
     for i, chunk in enumerate(results, 1):
         print(f"\nFiltered Result {i}:")
@@ -138,11 +134,7 @@ async def context_manager_example() -> None:
         print(f"Backend healthy: {is_healthy}")
 
         # Retrieve with min_score threshold
-        results = await backend.retrieve(
-            "vector databases",
-            top_k=3,
-            min_score=0.3
-        )
+        results = await backend.retrieve("vector databases", top_k=3, min_score=0.3)
 
         print(f"\nFound {len(results)} results above score threshold 0.3:")
         for chunk in results:
@@ -164,9 +156,7 @@ async def rag_context_formatting_example() -> None:
     # Format for LLM prompt
     context_parts = []
     for i, chunk in enumerate(chunks, 1):
-        context_parts.append(
-            f"[{i}] {chunk.source}\n{chunk.content}"
-        )
+        context_parts.append(f"[{i}] {chunk.source}\n{chunk.content}")
 
     context = "\n\n".join(context_parts)
 
@@ -202,6 +192,7 @@ async def pgvector_backend_example() -> None:
     # In production, use: from supabase import create_client
     class MockSupabaseClient:
         """Mock Supabase client for demo purposes."""
+
         def rpc(self, function_name: str, params: dict) -> Any:
             class Response:
                 def __init__(self):
@@ -225,7 +216,7 @@ async def pgvector_backend_example() -> None:
                     ]
                     # Apply match_count limit
                     if "match_count" in params:
-                        self.data = self.data[:params["match_count"]]
+                        self.data = self.data[: params["match_count"]]
 
                 def execute(self):
                     return self
@@ -241,9 +232,13 @@ async def pgvector_backend_example() -> None:
                                 def execute(self) -> Any:
                                     class Resp:
                                         data = [{"count": 100}]
+
                                     return Resp()
+
                             return Execute()
+
                     return Query()
+
             return Table()
 
     # Mock embedding function
@@ -287,7 +282,8 @@ async def pgvector_backend_example() -> None:
         print("\n" + "=" * 60)
         print("Production Setup Notes:")
         print("=" * 60)
-        print("""
+        print(
+            """
 1. Install Supabase client:
    pip install supabase
 
@@ -355,7 +351,8 @@ async def pgvector_backend_example() -> None:
        table="document_chunks",
        embed_fn=embed
    )
-""")
+"""
+        )
 
     except ImportError:
         print("SupabasePgVectorBackend not available (backend implementation needed)")
@@ -392,7 +389,7 @@ async def railway_pgvector_backend_example() -> None:
 
     # Import the backend
     try:
-        from llm_common.retrieval.backends import create_pg_backend
+        from llm_common.retrieval.backends import create_pg_backend  # noqa: F401
 
         print("✓ PgVectorBackend available (llm-common[pgvector] installed)\n")
 
@@ -403,7 +400,8 @@ async def railway_pgvector_backend_example() -> None:
         # For demo, show the factory pattern
         print("Example: Creating backend with Railway DATABASE_URL")
         print("=" * 60)
-        print("""
+        print(
+            """
 # Get Railway DATABASE_URL
 railway variables -s pgvector
 
@@ -459,13 +457,15 @@ await backend.close()
 async with create_pg_backend(...) as backend:
     results = await backend.retrieve("query")
     # Automatically closes on exit
-        """)
+        """
+        )
         print("=" * 60)
 
         print("\n" + "=" * 60)
         print("Production Setup (One-Time):")
         print("=" * 60)
-        print("""
+        print(
+            """
 1. Install llm-common with pgvector extras:
    cd backend/
    poetry add "llm-common[pgvector]"
@@ -498,7 +498,8 @@ async with create_pg_backend(...) as backend:
        table="document_chunks",
        embed_fn=your_embed_function
    )
-        """)
+        """
+        )
         print("=" * 60)
 
         print("\nAdvantages over SupabasePgVectorBackend:")
@@ -514,7 +515,7 @@ async with create_pg_backend(...) as backend:
         print("  See docs/LLM_COMMON_PG_BACKEND_MIGRATION.md for complete guide")
         print("  from SupabasePgVectorBackend → PgVectorBackend")
 
-    except ImportError as e:
+    except ImportError:
         print("✗ PgVectorBackend not available")
         print("\nTo install:")
         print("  pip install llm-common[pgvector]")

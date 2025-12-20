@@ -26,9 +26,7 @@ async def example_zai_client() -> None:
 
     client = ZaiClient(config)
 
-    messages = [
-        LLMMessage(role=MessageRole.USER, content="What is the capital of California?")
-    ]
+    messages = [LLMMessage(role=MessageRole.USER, content="What is the capital of California?")]
 
     response = await client.chat_completion(messages)
 
@@ -55,9 +53,7 @@ async def example_openrouter_client() -> None:
     client = OpenRouterClient(config)
 
     messages = [
-        LLMMessage(
-            role=MessageRole.USER, content="Explain quantum computing in one sentence."
-        )
+        LLMMessage(role=MessageRole.USER, content="Explain quantum computing in one sentence.")
     ]
 
     # Test multiple models
@@ -88,9 +84,7 @@ async def example_streaming() -> None:
     client = ZaiClient(config)
 
     messages = [
-        LLMMessage(
-            role=MessageRole.USER, content="Write a haiku about artificial intelligence."
-        )
+        LLMMessage(role=MessageRole.USER, content="Write a haiku about artificial intelligence.")
     ]
 
     print("Streaming response: ", end="", flush=True)

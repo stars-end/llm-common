@@ -1,7 +1,8 @@
 """z.ai LLM client implementation."""
 
 import time
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from openai import AsyncOpenAI
@@ -67,9 +68,9 @@ class ZaiClient(LLMClient):
     async def chat_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Send chat completion request to z.ai.
@@ -102,7 +103,11 @@ class ZaiClient(LLMClient):
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": (msg.role if hasattr(msg, "role") else msg["role"]), "content": (msg.content if hasattr(msg, "content") else msg["content"])} for msg in messages
+                    {
+                        "role": (msg.role if hasattr(msg, "role") else msg["role"]),
+                        "content": (msg.content if hasattr(msg, "content") else msg["content"]),
+                    }
+                    for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -138,7 +143,9 @@ class ZaiClient(LLMClient):
             )
 
         except httpx.TimeoutException as e:
-            raise TimeoutError(f"Request timed out after {self.config.timeout}s: {e}", provider="zai")
+            raise TimeoutError(
+                f"Request timed out after {self.config.timeout}s: {e}", provider="zai"
+            )
         except Exception as e:
             if "rate_limit" in str(e).lower():
                 raise RateLimitError(str(e), provider="zai")
@@ -147,9 +154,9 @@ class ZaiClient(LLMClient):
     async def stream_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream chat completion response from z.ai.
@@ -180,7 +187,11 @@ class ZaiClient(LLMClient):
             stream = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": (msg.role if hasattr(msg, "role") else msg["role"]), "content": (msg.content if hasattr(msg, "content") else msg["content"])} for msg in messages
+                    {
+                        "role": (msg.role if hasattr(msg, "role") else msg["role"]),
+                        "content": (msg.content if hasattr(msg, "content") else msg["content"]),
+                    }
+                    for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -194,7 +205,9 @@ class ZaiClient(LLMClient):
                     yield chunk.choices[0].delta.content
 
         except httpx.TimeoutException as e:
-            raise TimeoutError(f"Stream timed out after {self.config.timeout}s: {e}", provider="zai")
+            raise TimeoutError(
+                f"Stream timed out after {self.config.timeout}s: {e}", provider="zai"
+            )
         except Exception as e:
             if "rate_limit" in str(e).lower():
                 raise RateLimitError(str(e), provider="zai")
@@ -256,13 +269,17 @@ class ZaiClient(LLMClient):
 
         return input_cost + output_cost
 
+
 class GLMConfig(LLMConfig):
     """Alias for GLM-specific configuration."""
+
     def __init__(self, api_key: str, model: str = "glm-4.6", **kwargs: Any):
         super().__init__(api_key=api_key, default_model=model, provider="zai", **kwargs)
 
+
 class GLMVisionClient(ZaiClient):
     """Alias for ZAI client when used for vision tasks."""
+
     @property
     def total_tokens_used(self) -> int:
         # For compatibility with prime-radiant-ai usage
