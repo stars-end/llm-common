@@ -68,7 +68,7 @@ class AgenticExecutor:
     async def _resolve_tools(self, task: PlannedTask) -> List[ToolCall]:
         """Ask LLM which tools to call for the subtasks."""
         
-        subtasks_str = "\\n".join([f"- {st.description}" for st in task.sub_tasks])
+        subtasks_str = "\n".join([f"- {st.description}" for st in task.sub_tasks])
         tools_schema = self.registry.get_tools_schema() # Assumed method on registry
 
         # System message: context and instructions
@@ -86,7 +86,7 @@ class AgenticExecutor:
         class ToolCallList(BaseModel):
             calls: List[ToolCall]
         
-        system_prompt += f"\\n\\nReturn JSON matching: {ToolCallList.model_json_schema()}"
+        system_prompt += f"\n\nReturn JSON matching: {ToolCallList.model_json_schema()}"
 
         # User message: the actual task and subtasks to process
         user_prompt = f"""Task: {task.description}
