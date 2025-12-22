@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-from llm_common.agents import models as agent_models
+from llm_common.agents.tools import BaseTool
 from llm_common.retrieval import base as retrieval_base
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,9 @@ class ToolContextManager:
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._retriever = retriever
-        self._tool_map: Dict[str, agent_models.Tool] = {}
+        self._tool_map: Dict[str, BaseTool] = {}
 
-    def register_tool(self, tool: agent_models.Tool) -> None:
+    def register_tool(self, tool: BaseTool) -> None:
         """Registers a tool with the context manager."""
         self._tool_map[tool.name] = tool
 
@@ -30,7 +30,7 @@ class ToolContextManager:
         """Returns the description for a given tool."""
         if tool_name not in self._tool_map:
             raise ValueError(f"Tool '{tool_name}' not found.")
-        return self._tool_map[tool_name].description
+        return self._tool_map[tool_name].metadata.description
 
     async def save_context(
         self,
