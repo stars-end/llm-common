@@ -34,6 +34,8 @@ class ToolRegistry:
         return await self._tools[tool_name](**args)
 
 
+from llm_common.retrieval.base import RetrievalBackend
+
 class ResearchAgent:
     """
     Agent specialized for research tasks.
@@ -45,6 +47,7 @@ class ResearchAgent:
         llm_client: LLMClient,
         search_client: WebSearchClient,
         work_dir: str = "/tmp/research_agent",
+        retriever: RetrievalBackend | None = None,
     ):
         self.llm = llm_client
         self.search = search_client
@@ -52,7 +55,7 @@ class ResearchAgent:
 
         # Initialize sub-components
         self.planner = TaskPlanner(self.llm)
-        self.context_manager = ToolContextManager(self.work_dir)
+        self.context_manager = ToolContextManager(self.work_dir, retriever=retriever)
 
         # Setup Tool Registry
         self.registry = ToolRegistry()
