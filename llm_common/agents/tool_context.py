@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -97,3 +98,59 @@ class ToolContextManager:
             query=query, filters={"tool": tool_name}, k=k
         )
         return [doc.content for doc in documents]
+
+    @staticmethod
+    def hash_query(query: str) -> str:
+        """
+        Generate a deterministic hash for a query string.
+        
+        Used for context grouping and caching relevance results.
+        Implements Dexter's hashQuery() pattern.
+        
+        Args:
+            query: The query string to hash
+            
+        Returns:
+            MD5 hex digest of the query (first 16 chars for brevity)
+        """
+        return hashlib.md5(query.encode("utf-8")).hexdigest()[:16]
+
+    def get_all_sources(self, query_id: str) -> List[str]:
+        """
+        Collect all source URLs from tool executions for a query.
+        
+        Args:
+            query_id: The query session to collect sources from
+            
+        Returns:
+            Deduplicated list of source URLs
+        """
+        query_dir = self.base_dir / query_id
+        if not query_dir.exists():
+            return []
+
+        sources: List[str] = []
+        for f in sorted(query_dir.glob("*.json")):
+            try:
+                with open(f) as fd:
+                    data = json.load(fd)
+                    result = data.get("result", {})
+                    
+                    # Try to extract source_urls from result
+                    if isinstance(result, dict):
+                        source_urls = result.get("source_urls", [])
+                        if source_urls:
+                            sources.extend(source_urls)
+                            
+                        # Also check nested output
+                        output = result.get("output", {})
+                        if isinstance(output, dict):
+                            nested_urls = output.get("source_urls", [])
+                            if nested_urls:
+                                sources.extend(nested_urls)
+            except Exception:
+                pass
+
+        # Return deduplicated list preserving order
+        return list(dict.fromkeys(sources))
+

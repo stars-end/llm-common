@@ -1,7 +1,14 @@
 """Agents module for llm-common."""
 
-from llm_common.agents.executor import AgenticExecutor
+from llm_common.agents.executor import AgenticExecutor, StreamEvent
+from llm_common.agents.message_history import MessageHistory
 from llm_common.agents.planner import TaskPlanner
+from llm_common.agents.provenance import (
+    Evidence,
+    EvidenceEnvelope,
+    ValidatedCitations,
+    validate_citations,
+)
 from llm_common.agents.research_agent import ResearchAgent
 from llm_common.agents.schemas import (
     ExecutionPlan,
@@ -40,11 +47,19 @@ __all__ = [
     # Core agents
     "TaskPlanner",
     "AgenticExecutor",
+    "StreamEvent",
     "ToolContextManager",
     "ResearchAgent",
     "UISmokeAgent",
     "BrowserAdapter",
     "load_stories_from_directory",
+    # Message history
+    "MessageHistory",
+    # Provenance
+    "Evidence",
+    "EvidenceEnvelope",
+    "ValidatedCitations",
+    "validate_citations",
     # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
@@ -58,3 +73,4 @@ __all__ = [
     "AnswerSynthesizer",
     "StructuredAnswer",
 ]
+

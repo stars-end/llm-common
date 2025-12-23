@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, AsyncGenerator, Optional, Protocol
 
 # from .tool_context import ToolContextManager # Assumed to exist or we mock it for now
 from llm_common.agents.tool_context import ToolContextManager  # It exists in file list
@@ -9,6 +10,35 @@ from llm_common.core import LLMClient, LLMMessage
 from .schemas import ExecutionPlan, PlannedTask, SubTaskResult, ToolCall
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class StreamEvent:
+    """
+    Event yielded during streaming execution.
+    
+    Types:
+        - "thinking": Agent reasoning about the task
+        - "tool_call": Tool invocation started
+        - "tool_result": Tool returned output
+        - "text": Streaming answer text
+        - "sources": Final source list
+        - "error": Error occurred
+    """
+    type: str
+    data: Any = None
+    task_id: Optional[int] = None
+    tool_name: Optional[str] = None
+
+
+class AgentCallbacks(Protocol):
+    """Protocol for agent callbacks (optional)."""
+    def on_agent_start(self, name: str, query: str) -> None: ...
+    def on_agent_finish(self, name: str, output: Any) -> None: ...
+    def on_tool_start(self, tool_name: str, args: dict) -> None: ...
+    def on_tool_finish(self, tool_name: str, output: Any, task_id: str | None = None, query_id: str | None = None) -> None: ...
+    def on_thought_start(self) -> None: ...
+    def on_thought_finish(self, thought: str) -> None: ...
 
 
 class AgenticExecutor:
@@ -141,3 +171,134 @@ class AgenticExecutor:
         except Exception as e:
             logger.error(f"Tool execution {call.tool} failed: {e}")
             return {"tool": call.tool, "error": str(e)}
+
+    async def run_stream(
+        self,
+        plan: ExecutionPlan,
+        query_id: str,
+        callbacks: Optional[AgentCallbacks] = None,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """
+        Execute plan as async generator yielding stream events.
+        
+        This is the SSE-compatible entry point for Deep Chat UI.
+        Each step yields a StreamEvent that can be serialized to JSON
+        and sent over Server-Sent Events.
+        
+        Args:
+            plan: The execution plan to run
+            query_id: Unique identifier for this query
+            callbacks: Optional callbacks for observability
+            
+        Yields:
+            StreamEvent: Events for thinking, tool_call, tool_result, sources
+        """
+        logger.info(f"Starting streaming execution of plan with {len(plan.tasks)} tasks.")
+        
+        # Notify start
+        if callbacks:
+            try:
+                callbacks.on_agent_start("executor", query_id)
+            except Exception:
+                pass  # Callbacks are optional
+        
+        all_sources: list[str] = []
+        
+        for task in plan.tasks:
+            # Yield thinking event
+            yield StreamEvent(
+                type="thinking",
+                data={"message": f"Processing: {task.description}"},
+                task_id=task.id,
+            )
+            
+            if callbacks:
+                try:
+                    callbacks.on_thought_start()
+                except Exception:
+                    pass
+            
+            try:
+                # Resolve tools
+                tool_calls = await self._resolve_tools(task)
+                
+                if callbacks:
+                    try:
+                        callbacks.on_thought_finish(f"Resolved {len(tool_calls)} tool calls")
+                    except Exception:
+                        pass
+                
+                if not tool_calls:
+                    yield StreamEvent(
+                        type="thinking",
+                        data={"message": "No tools needed for this task"},
+                        task_id=task.id,
+                    )
+                    continue
+                
+                # Execute each tool and yield events
+                for tc in tool_calls:
+                    # Yield tool_call event
+                    yield StreamEvent(
+                        type="tool_call",
+                        data={"tool": tc.tool, "args": tc.args},
+                        task_id=task.id,
+                        tool_name=tc.tool,
+                    )
+                    
+                    if callbacks:
+                        try:
+                            callbacks.on_tool_start(tc.tool, tc.args)
+                        except Exception:
+                            pass
+                    
+                    # Execute tool
+                    result = await self._execute_tool(tc, task.id, query_id)
+                    
+                    # Collect sources from result
+                    if isinstance(result, dict):
+                        output = result.get("output")
+                        if hasattr(output, "source_urls"):
+                            all_sources.extend(output.source_urls)
+                        elif isinstance(output, dict) and "source_urls" in output:
+                            all_sources.extend(output.get("source_urls", []))
+                    
+                    # Yield tool_result event
+                    yield StreamEvent(
+                        type="tool_result",
+                        data=result,
+                        task_id=task.id,
+                        tool_name=tc.tool,
+                    )
+                    
+                    if callbacks:
+                        try:
+                            callbacks.on_tool_finish(tc.tool, result, str(task.id), query_id)
+                        except Exception:
+                            pass
+                            
+            except Exception as e:
+                logger.error(f"Task {task.id} failed during stream: {e}")
+                yield StreamEvent(
+                    type="error",
+                    data={"error": str(e), "task_id": task.id},
+                    task_id=task.id,
+                )
+        
+        # Yield sources at end (deduplicated)
+        unique_sources = list(dict.fromkeys(all_sources))
+        if unique_sources:
+            yield StreamEvent(
+                type="sources",
+                data={"sources": unique_sources},
+            )
+        
+        # Notify finish
+        if callbacks:
+            try:
+                callbacks.on_agent_finish("executor", None)
+            except Exception:
+                pass
+        
+        logger.info(f"Streaming execution complete. Collected {len(unique_sources)} sources.")
+
