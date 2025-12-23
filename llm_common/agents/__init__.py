@@ -7,6 +7,7 @@ from llm_common.agents.provenance import (
     Evidence,
     EvidenceEnvelope,
     ValidatedCitations,
+    format_tool_result,
     validate_citations,
 )
 from llm_common.agents.research_agent import ResearchAgent
