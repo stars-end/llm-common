@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -16,6 +17,15 @@ class ToolContextManager:
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self._sources: dict[str, list[dict]] = {}  # query_id -> sources
+
+    def hash_query(self, query: str) -> str:
+        """Generate a stable, short hash for a query string.
+        
+        Used for deduplication and context file naming.
+        Returns a 12-character hex digest.
+        """
+        return hashlib.sha256(query.encode()).hexdigest()[:12]
 
     async def save_context(
         self, tool_name: str, args: dict[str, Any], result: Any, task_id: str, query_id: str
@@ -46,6 +56,21 @@ class ToolContextManager:
 
             logger.debug(f"Saved context to {file_path}")
 
+            # Track sources for this query
+            if query_id not in self._sources:
+                self._sources[query_id] = []
+            
+            # Extract source info if available in result
+            if isinstance(result, dict):
+                if "url" in result:
+                    self._sources[query_id].append({
+                        "tool": tool_name,
+                        "url": result.get("url"),
+                        "title": result.get("title", tool_name),
+                    })
+                elif "sources" in result:
+                    self._sources[query_id].extend(result["sources"])
+
         except Exception as e:
             logger.error(f"Failed to save context: {e}")
 
@@ -65,3 +90,17 @@ class ToolContextManager:
                 pass
 
         return "\\n\\n".join(contexts)
+
+    def get_all_sources(self, query_id: str) -> list[dict]:
+        """Get all sources collected during query execution.
+        
+        Returns a list of source dictionaries with tool, url, and title.
+        Used by run_stream() to yield sources at the end of execution.
+        """
+        return self._sources.get(query_id, [])
+
+    def clear_sources(self, query_id: str) -> None:
+        """Clear sources for a query (used after yielding)."""
+        if query_id in self._sources:
+            del self._sources[query_id]
+
