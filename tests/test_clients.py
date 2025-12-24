@@ -14,7 +14,7 @@ from llm_common.providers import OpenRouterClient, ZaiClient
 
 def test_zai_client_requires_api_key():
     """Test ZaiClient raises error without API key."""
-    config = LLMConfig(api_key="", default_model="glm-4.5")
+    config = LLMConfig(api_key="", default_model="glm-4.7")
 
     with pytest.raises(APIKeyError):
         ZaiClient(config)
@@ -30,12 +30,12 @@ def test_openrouter_client_requires_api_key():
 
 def test_zai_client_initialization():
     """Test ZaiClient initializes correctly."""
-    config = LLMConfig(api_key="test-key", default_model="glm-4.5", provider="zai")
+    config = LLMConfig(api_key="test-key", default_model="glm-4.7", provider="zai")
 
     client = ZaiClient(config)
 
     assert client.config.api_key == "test-key"
-    assert client.config.default_model == "glm-4.5"
+    assert client.config.default_model == "glm-4.7"
     assert client.get_total_cost() == 0.0
     assert client.get_request_count() == 0
 
@@ -61,7 +61,7 @@ def test_budget_check_passes():
     """Test budget check passes when under limit."""
     config = LLMConfig(
         api_key="test-key",
-        default_model="glm-4.5",
+        default_model="glm-4.7",
         budget_limit_usd=10.0,
         provider="zai",
     )
@@ -75,7 +75,7 @@ def test_budget_check_fails():
     """Test budget check fails when over limit."""
     config = LLMConfig(
         api_key="test-key",
-        default_model="glm-4.5",
+        default_model="glm-4.7",
         budget_limit_usd=0.10,
         provider="zai",
     )
@@ -94,7 +94,7 @@ def test_cost_tracking():
     """Test cost tracking functionality."""
     config = LLMConfig(
         api_key="test-key",
-        default_model="glm-4.5",
+        default_model="glm-4.7",
         track_costs=True,
         provider="zai",
     )
@@ -112,7 +112,7 @@ def test_cost_tracking():
 
 def test_reset_metrics():
     """Test resetting metrics."""
-    config = LLMConfig(api_key="test-key", default_model="glm-4.5", provider="zai")
+    config = LLMConfig(api_key="test-key", default_model="glm-4.7", provider="zai")
 
     client = ZaiClient(config)
 
@@ -131,16 +131,16 @@ def test_reset_metrics():
 
 def test_zai_estimate_cost():
     """Test cost estimation for z.ai."""
-    config = LLMConfig(api_key="test-key", default_model="glm-4.5", provider="zai")
+    config = LLMConfig(api_key="test-key", default_model="glm-4.7", provider="zai")
 
     client = ZaiClient(config)
 
     # Free tier model
-    cost = client._estimate_cost("glm-4.5-air", 1000, 100)
+    cost = client._estimate_cost("glm-4.7", 1000, 100)
     assert cost == 0.0
 
     # Paid model (rough estimate)
-    cost = client._estimate_cost("glm-4.5", 1000, 100)
+    cost = client._estimate_cost("glm-4.7", 1000, 100)
     assert cost > 0.0
 
 
@@ -162,14 +162,14 @@ def test_openrouter_estimate_cost():
 @pytest.mark.asyncio
 async def test_zai_chat_completion_mock(mocker):
     """Test z.ai chat completion with mocked API."""
-    config = LLMConfig(api_key="test-key", default_model="glm-4.5", provider="zai")
+    config = LLMConfig(api_key="test-key", default_model="glm-4.7", provider="zai")
 
     client = ZaiClient(config)
 
     # Mock the OpenAI client response
     mock_response = mocker.MagicMock()
     mock_response.id = "test-123"
-    mock_response.model = "glm-4.5"
+    mock_response.model = "glm-4.7"
     mock_response.choices = [
         mocker.MagicMock(message=mocker.MagicMock(content="Test response"), finish_reason="stop")
     ]
@@ -188,6 +188,6 @@ async def test_zai_chat_completion_mock(mocker):
     response = await client.chat_completion(messages)
 
     assert response.content == "Test response"
-    assert response.model == "glm-4.5"
+    assert response.model == "glm-4.7"
     assert response.usage.total_tokens == 30
     assert response.provider == "zai"
