@@ -5,7 +5,7 @@ from llm_common.agents.callbacks import (
     ToolCallInfo,
     ToolCallResult,
 )
-from llm_common.agents.executor import AgenticExecutor
+from llm_common.agents.executor import AgenticExecutor, StreamEvent
 from llm_common.agents.message_history import Message, MessageHistory
 from llm_common.agents.planner import TaskPlanner
 from llm_common.agents.research_agent import ResearchAgent
@@ -16,6 +16,7 @@ from llm_common.agents.schemas import (
     SubTaskResult,
     ToolCall,
 )
+
 
 # Answer synthesis (bd-sdxe)
 from llm_common.agents.synthesizer import (
@@ -53,8 +54,10 @@ __all__ = [
     # Core agents
     "TaskPlanner",
     "AgenticExecutor",
+    "StreamEvent",
     "ToolContextManager",
     "ResearchAgent",
+
     "UISmokeAgent",
     "BrowserAdapter",
     "load_stories_from_directory",
