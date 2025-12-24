@@ -190,7 +190,7 @@ llm-common/
 ### LLM Models (flexible)
 | Model | Input ($/1M tokens) | Output ($/1M tokens) | Use Case |
 |-------|--------------------:|---------------------:|----------|
-| glm-4.7-air (free) | $0.00 | $0.00 | Development/testing |
+| glm-4.7 (free) | $0.00 | $0.00 | Development/testing |
 | glm-4.5 | $0.50 | $0.50 | Budget-conscious |
 | glm-4.6 | $1.00 | $1.00 | Production |
 | gpt-4o-mini | $0.15 | $0.60 | Fast & cheap |

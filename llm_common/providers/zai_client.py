@@ -34,7 +34,7 @@ class ZaiClient(LLMClient):
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
-        "glm-4.7-air": {"input": 0.0, "output": 0.0},  # Free tier
+        "glm-4.7": {"input": 0.0, "output": 0.0},  # Free tier
         "glm-4.7": {"input": 0.50, "output": 0.50},
         "glm-4.7": {"input": 1.00, "output": 1.00},
     }

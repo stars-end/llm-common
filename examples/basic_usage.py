@@ -18,7 +18,7 @@ async def example_zai_client() -> None:
 
     config = LLMConfig(
         api_key=os.getenv("ZAI_API_KEY", "your-zai-key"),
-        default_model="glm-4.7-air",  # Free tier
+        default_model="glm-4.7",  # Free tier
         temperature=0.7,
         max_tokens=100,
         provider="zai",
@@ -59,7 +59,7 @@ async def example_openrouter_client() -> None:
     # Test multiple models
     models = [
         "google/gemini-2.0-flash-exp:free",
-        "z-ai/glm-4.7-air:free",
+        "z-ai/glm-4.7",
         "openai/gpt-4o-mini",
     ]
 
@@ -77,7 +77,7 @@ async def example_streaming() -> None:
 
     config = LLMConfig(
         api_key=os.getenv("ZAI_API_KEY", "your-zai-key"),
-        default_model="glm-4.7-air",
+        default_model="glm-4.7",
         provider="zai",
     )
 

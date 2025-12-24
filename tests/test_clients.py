@@ -136,7 +136,7 @@ def test_zai_estimate_cost():
     client = ZaiClient(config)
 
     # Free tier model
-    cost = client._estimate_cost("glm-4.7-air", 1000, 100)
+    cost = client._estimate_cost("glm-4.7", 1000, 100)
     assert cost == 0.0
 
     # Paid model (rough estimate)
