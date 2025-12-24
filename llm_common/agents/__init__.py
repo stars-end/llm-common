@@ -8,6 +8,12 @@ from llm_common.agents.callbacks import (
 from llm_common.agents.executor import AgenticExecutor, StreamEvent
 from llm_common.agents.message_history import Message, MessageHistory
 from llm_common.agents.planner import TaskPlanner
+from llm_common.agents.provenance import (
+    Evidence,
+    EvidenceEnvelope,
+    format_tool_result,
+    validate_citations,
+)
 from llm_common.agents.research_agent import ResearchAgent
 from llm_common.agents.schemas import (
     ExecutionPlan,
@@ -51,20 +57,23 @@ __all__ = [
     "AgentCallbacks",
     "ToolCallInfo",
     "ToolCallResult",
+    # Provenance (dmzy.4)
+    "Evidence",
+    "EvidenceEnvelope",
+    "validate_citations",
+    "format_tool_result",
     # Core agents
     "TaskPlanner",
     "AgenticExecutor",
     "StreamEvent",
     "ToolContextManager",
     "ResearchAgent",
-
     "UISmokeAgent",
     "BrowserAdapter",
     "load_stories_from_directory",
     # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
-
     # Tool framework (bd-sdxe)
     "BaseTool",
     "ToolMetadata",
@@ -75,3 +84,4 @@ __all__ = [
     "AnswerSynthesizer",
     "StructuredAnswer",
 ]
+
