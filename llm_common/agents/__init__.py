@@ -1,6 +1,12 @@
 """Agents module for llm-common."""
 
+from llm_common.agents.callbacks import (
+    AgentCallbacks,
+    ToolCallInfo,
+    ToolCallResult,
+)
 from llm_common.agents.executor import AgenticExecutor
+from llm_common.agents.message_history import Message, MessageHistory
 from llm_common.agents.planner import TaskPlanner
 from llm_common.agents.research_agent import ResearchAgent
 from llm_common.agents.schemas import (
@@ -31,12 +37,19 @@ from llm_common.agents.utils import load_stories_from_directory
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
 
 __all__ = [
+    # Message History
+    "Message",
+    "MessageHistory",
     # Schemas
     "SubTask",
     "PlannedTask",
     "ExecutionPlan",
     "ToolCall",
     "SubTaskResult",
+    # Callbacks
+    "AgentCallbacks",
+    "ToolCallInfo",
+    "ToolCallResult",
     # Core agents
     "TaskPlanner",
     "AgenticExecutor",
@@ -48,6 +61,7 @@ __all__ = [
     # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
+
     # Tool framework (bd-sdxe)
     "BaseTool",
     "ToolMetadata",
