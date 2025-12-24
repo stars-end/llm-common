@@ -34,7 +34,7 @@ from llm_common.core import LLMMessage
 zai = ZaiClient(api_key="your-zai-key")
 response = await zai.chat_completion(
     messages=[LLMMessage(role="user", content="Hello!")],
-    model="glm-4.5"
+    model="glm-4.7"
 )
 
 # OpenRouter client (access to 400+ models)

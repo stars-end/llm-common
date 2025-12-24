@@ -34,9 +34,9 @@ class ZaiClient(LLMClient):
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
-        "glm-4.5-air": {"input": 0.0, "output": 0.0},  # Free tier
-        "glm-4.5": {"input": 0.50, "output": 0.50},
-        "glm-4.6": {"input": 1.00, "output": 1.00},
+        "glm-4.7-air": {"input": 0.0, "output": 0.0},  # Free tier
+        "glm-4.7": {"input": 0.50, "output": 0.50},
+        "glm-4.7": {"input": 1.00, "output": 1.00},
     }
 
     def __init__(self, config: LLMConfig) -> None:
@@ -111,7 +111,7 @@ class ZaiClient(LLMClient):
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                extra_body={"thinking": {"type": "enabled"}} if "glm-4.6" in model else {},
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
                 **kwargs,
             )
 
@@ -196,7 +196,7 @@ class ZaiClient(LLMClient):
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
-                extra_body={"thinking": {"type": "enabled"}} if "glm-4.6" in model else {},
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
                 **kwargs,
             )
 
@@ -272,8 +272,7 @@ class ZaiClient(LLMClient):
 
 class GLMConfig(LLMConfig):
     """Alias for GLM-specific configuration."""
-
-    def __init__(self, api_key: str, model: str = "glm-4.6", **kwargs: Any):
+    def __init__(self, api_key: str, model: str = "glm-4.7", **kwargs: Any):
         super().__init__(api_key=api_key, default_model=model, provider="zai", **kwargs)
 
 

@@ -40,8 +40,8 @@ class OpenRouterClient(LLMClient):
         "openai/gpt-4o-mini": {"input": 0.15, "output": 0.6},
         "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
         "google/gemini-2.0-flash-exp:free": {"input": 0.0, "output": 0.0},
-        "z-ai/glm-4.5-air:free": {"input": 0.0, "output": 0.0},
-        "z-ai/glm-4.5": {"input": 0.50, "output": 0.50},
+        "z-ai/glm-4.7-air:free": {"input": 0.0, "output": 0.0},
+        "z-ai/glm-4.7": {"input": 0.50, "output": 0.50},
     }
 
     def __init__(self, config: LLMConfig) -> None:
