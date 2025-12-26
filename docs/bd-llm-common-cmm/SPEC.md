@@ -15,6 +15,13 @@ The `llm-common` workstream’s responsibility is to make cross-repo work safe b
 - versioning and pins
 - shared contracts (ToolResult/provenance, optional streaming events)
 
+## 0.1 Jules Dispatch (llm-common-specific)
+
+Jules-ready packets live in `docs/bd-llm-common-cmm/JULES_DISPATCH.md`. Use them to dispatch self-contained library work with:
+- explicit verification gates (`poetry run pytest -v`),
+- stable public API exports,
+- and release/pinning notes so downstream repos don’t drift.
+
 ## 1) MVP Stance (explicit)
 
 **MVP = Structured-only advisor responses.**  
