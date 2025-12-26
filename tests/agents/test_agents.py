@@ -13,6 +13,7 @@ Feature-Key: affordabot-dmzy.5
 
 import pytest
 import asyncio
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 import tempfile
@@ -252,6 +253,14 @@ class TestToolContextManager:
             assert query_dir.exists()
             files = list(query_dir.glob("*.json"))
             assert len(files) == 1
+
+            # Check pointer store persisted meta + result
+            pointers_dir = Path(tmpdir) / "_pointers" / "query1"
+            assert pointers_dir.exists()
+            meta_files = list(pointers_dir.glob("*.meta.json"))
+            result_files = list(pointers_dir.glob("*.result.json"))
+            assert len(meta_files) == 1
+            assert len(result_files) == 1
     
     def test_get_all_sources_empty(self):
         """Test get_all_sources with no sources."""
@@ -261,6 +270,47 @@ class TestToolContextManager:
             manager = ToolContextManager(Path(tmpdir))
             sources = manager.get_all_sources("nonexistent")
             assert sources == []
+
+    @pytest.mark.asyncio
+    async def test_select_relevant_contexts(self):
+        from llm_common.agents import ToolContextManager
+        from llm_common.agents.context_pointers import compute_pointer_id
+        from llm_common.core import LLMClient
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manager = ToolContextManager(Path(tmpdir))
+            query_id = "query1"
+
+            await manager.save_context(
+                tool_name="tool_a",
+                args={"q": "alpha"},
+                result={"text": "alpha"},
+                task_id="t1",
+                query_id=query_id,
+            )
+            await manager.save_context(
+                tool_name="tool_b",
+                args={"q": "beta"},
+                result={"text": "beta"},
+                task_id="t2",
+                query_id=query_id,
+            )
+
+            pointer_b = compute_pointer_id(
+                tool_name="tool_b", args={"q": "beta"}, query_id=query_id, task_id="t2"
+            )
+
+            mock_client = AsyncMock(spec=LLMClient)
+            mock_response = AsyncMock()
+            mock_response.content = json.dumps({"pointer_ids": [pointer_b]})
+            mock_client.chat_completion.return_value = mock_response
+
+            blob = await manager.select_relevant_contexts(
+                query_id=query_id, query="need beta", client=mock_client, max_selected=1
+            )
+
+            assert "beta" in blob
+            assert "alpha" not in blob
 
 
 # Run with: poetry run pytest tests/agents/test_agents.py -v

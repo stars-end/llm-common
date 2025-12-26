@@ -5,6 +5,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+from llm_common.agents.context_pointers import (
+    ContextPointer,
+    ContextRelevanceSelector,
+    FileContextPointerStore,
+    format_selected_contexts,
+)
+from llm_common.core import LLMClient
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,10 +22,17 @@ class ToolContextManager:
     This enables 'Glass Box' observability by saving inputs/outputs to disk.
     """
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path, pointer_store: FileContextPointerStore | None = None):
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._sources: dict[str, list[dict]] = {}  # query_id -> sources
+        self._pointer_store = pointer_store or FileContextPointerStore(
+            base_dir=self.base_dir / "_pointers"
+        )
+
+    @property
+    def pointer_store(self) -> FileContextPointerStore:
+        return self._pointer_store
 
     def hash_query(self, query: str) -> str:
         """Generate a stable, short hash for a query string.
@@ -71,6 +86,30 @@ class ToolContextManager:
                 elif "sources" in result:
                     self._sources[query_id].extend(result["sources"])
 
+            # Persist a deterministic pointer (meta + result) for relevance selection.
+            try:
+                source_urls: list[str] = []
+                if isinstance(result, dict):
+                    if isinstance(result.get("source_urls"), list):
+                        source_urls.extend([u for u in result["source_urls"] if isinstance(u, str)])
+                    if isinstance(result.get("url"), str):
+                        source_urls.append(result["url"])
+                    if isinstance(result.get("sources"), list):
+                        for item in result["sources"]:
+                            if isinstance(item, dict) and isinstance(item.get("url"), str):
+                                source_urls.append(item["url"])
+
+                await self._pointer_store.save(
+                    query_id=query_id,
+                    task_id=task_id,
+                    tool_name=tool_name,
+                    args=args,
+                    result=result,
+                    source_urls=source_urls or None,
+                )
+            except Exception as e:
+                logger.error(f"Failed to save context pointer: {e}")
+
         except Exception as e:
             logger.error(f"Failed to save context: {e}")
 
@@ -91,6 +130,33 @@ class ToolContextManager:
 
         return "\\n\\n".join(contexts)
 
+    def list_pointers(self, query_id: str) -> list[ContextPointer]:
+        return self._pointer_store.list(query_id=query_id)
+
+    async def select_relevant_contexts(
+        self,
+        *,
+        query_id: str,
+        query: str,
+        client: LLMClient,
+        model: str | None = None,
+        max_selected: int | None = None,
+        max_chars: int = 20000,
+    ) -> str:
+        pointers = self.list_pointers(query_id)
+        if not pointers:
+            return ""
+
+        selector = ContextRelevanceSelector(
+            client=client, model=model, max_selected=max_selected
+        )
+        selected = await selector.select(query=query, pointers=pointers)
+        if not selected:
+            selected = pointers[-(max_selected or 6) :]
+        return format_selected_contexts(
+            pointers=selected, store=self._pointer_store, max_chars=max_chars
+        )
+
     def get_all_sources(self, query_id: str) -> list[dict]:
         """Get all sources collected during query execution.
         
@@ -103,4 +169,3 @@ class ToolContextManager:
         """Clear sources for a query (used after yielding)."""
         if query_id in self._sources:
             del self._sources[query_id]
-
