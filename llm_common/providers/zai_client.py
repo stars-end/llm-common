@@ -34,9 +34,9 @@ class ZaiClient(LLMClient):
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
-        "glm-4.7": {"input": 0.0, "output": 0.0},  # Free tier
-        "glm-4.7": {"input": 0.50, "output": 0.50},
-        "glm-4.7": {"input": 1.00, "output": 1.00},
+        # NOTE: Keep keys unique; Python dict literals overwrite duplicates.
+        # For now, treat glm-4.7 as free-tier in cost estimation.
+        "glm-4.7": {"input": 0.0, "output": 0.0},
     }
 
     def __init__(self, config: LLMConfig) -> None:

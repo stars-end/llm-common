@@ -29,7 +29,14 @@ from llm_common.agents.synthesizer import (
     AnswerSynthesizer,
     StructuredAnswer,
 )
+from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
 from llm_common.agents.tool_context import ToolContextManager
+from llm_common.agents.context_pointers import (
+    ContextPointer,
+    ContextRelevanceSelector,
+    FileContextPointerStore,
+    format_selected_contexts,
+)
 
 # Tool framework (bd-sdxe)
 from llm_common.agents.tools import (
@@ -80,8 +87,15 @@ __all__ = [
     "ToolParameter",
     "ToolResult",
     "ToolRegistry",
+    # Tool selection
+    "ToolSelectionConfig",
+    "ToolSelector",
+    # Context pointers
+    "ContextPointer",
+    "FileContextPointerStore",
+    "ContextRelevanceSelector",
+    "format_selected_contexts",
     # Answer synthesis (bd-sdxe)
     "AnswerSynthesizer",
     "StructuredAnswer",
 ]
-

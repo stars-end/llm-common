@@ -139,8 +139,8 @@ def test_zai_estimate_cost():
     cost = client._estimate_cost("glm-4.7", 1000, 100)
     assert cost == 0.0
 
-    # Paid model (rough estimate)
-    cost = client._estimate_cost("glm-4.7", 1000, 100)
+    # Unknown model (uses default non-free pricing)
+    cost = client._estimate_cost("glm-4.7-pro", 1000, 100)
     assert cost > 0.0
 
 
