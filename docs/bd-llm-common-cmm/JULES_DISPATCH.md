@@ -42,6 +42,11 @@ llm-common should not grow UI code or product-specific prompts; keep it boring.
 
 - Tool selection fallback policy details (must remain bounded; no “select all tools” default)
 
+## 5) Fire-and-forget packet docs (read these first)
+
+- `docs/bd-llm-common-cmm/packets/llm-common-cmm.11.md`
+- `docs/bd-llm-common-cmm/packets/llm-common-cmm.12.md`
+
 ### Packet: `llm-common-cmm.11` — TOOL_SELECTION_HELPER_AND_MODEL_CONFIG
 
 **Repo:** `llm-common`  
