@@ -6,7 +6,7 @@
 
 ## 0) Purpose
 
-This is the **llm-common mirror** of the canonical big‑bang frontend unification spec.
+This is the **llm-common mirror** of the canonical big‑bang shared agent/contract unification spec.
 
 > **Canonical copy**: `prime-radiant-ai/docs/bd-yn9g/SPEC.md`.  
 > This file exists so agents working in `llm-common` have full context while implementing contract and release work.
@@ -14,6 +14,11 @@ This is the **llm-common mirror** of the canonical big‑bang frontend unificati
 The `llm-common` workstream’s responsibility is to make cross-repo work safe by stabilizing:
 - versioning and pins
 - shared contracts (ToolResult/provenance, optional streaming events)
+
+Frontend note:
+- Affordabot is SEO-first and remains Next.js.
+- Prime Radiant is app-first and remains a Vite SPA.
+- Therefore, llm-common must stay framework-agnostic and focus on shared contracts/primitives.
 
 ## 0.1 Jules Dispatch (llm-common-specific)
 
