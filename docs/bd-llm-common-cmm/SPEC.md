@@ -27,6 +27,9 @@ This repo should provide **boring, stable building blocks** that reduce regressi
 - (Optional) one documented streaming event schema if/when streaming is enabled.
 - A tagged release that both repos pin to (no branch pins).
 
+Dexter audit reference (local snapshot):
+- `docs/bd-llm-common-cmm/DEXTER_AUDIT.md`
+
 ## 3) Beads Issues (Jules-dispatchable)
 
 Epic: `llm-common-cmm`
@@ -34,6 +37,10 @@ Epic: `llm-common-cmm`
 - `llm-common-cmm.2` Contract: ToolResult + provenance
 - `llm-common-cmm.3` Contract: StreamEvent schema (optional / post‑MVP)
 - `llm-common-cmm.4` Release + pinning plan (apps + scripts)
+- `llm-common-cmm.5` Docs: Dexter audit refresh + rewrite spec updates (this PR)
+- `llm-common-cmm.6` Chore: version/tag alignment
+- `llm-common-cmm.7` Task: publish JSON Schema artifacts in releases
+- `llm-common-cmm.8` Task: MessageHistory helper (Dexter-style)
 
 ## 4) Dependency Notes (cross-repo)
 
@@ -43,4 +50,3 @@ Hard dependency:
 ## 5) Open Questions (shared)
 
 See canonical spec: `prime-radiant-ai/docs/bd-yn9g/SPEC.md`.
-
