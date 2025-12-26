@@ -5,7 +5,8 @@ from typing import Any, AsyncGenerator, Optional
 
 from llm_common.agents.callbacks import AgentCallbacks, ToolCallInfo, ToolCallResult
 from llm_common.agents.tool_context import ToolContextManager
-from llm_common.core import LLMClient, LLMMessage
+from llm_common.agents.tool_selector import ToolSelector
+from llm_common.core import LLMClient
 
 from .schemas import ExecutionPlan, PlannedTask, SubTaskResult, ToolCall
 
@@ -201,56 +202,8 @@ class AgenticExecutor:
             return SubTaskResult(task_id=task.id, sub_task_id=0, success=False, error=str(e))
 
     async def _resolve_tools(self, task: PlannedTask) -> list[ToolCall]:
-        """Ask LLM which tools to call for the subtasks."""
-
-        subtasks_str = "\n".join([f"- {st.description}" for st in task.sub_tasks])
-        tools_schema = self.registry.get_tools_schema()  # Assumed method on registry
-
-        # System message: context and instructions
-        system_prompt = f"""You are an expert agent execution engine.
-
-        Available Tools:
-        {tools_schema}
-
-        Return a JSON list of tool calls to satisfy the given subtasks.
-        """
-
-        from pydantic import BaseModel
-
-        # Pydantic schema for list of tool calls
-        class ToolCallList(BaseModel):
-            calls: list[ToolCall]
-
-        system_prompt += f"\n\nReturn JSON matching: {ToolCallList.model_json_schema()}"
-
-        # User message: the actual task and subtasks to process
-        user_prompt = f"""Task: {task.description}
-
-        Subtasks to complete:
-        {subtasks_str}
-
-        Decide which tools to call to satisfy these subtasks."""
-
-        response = await self.client.chat_completion(
-            messages=[
-                LLMMessage(role="system", content=system_prompt),
-                LLMMessage(role="user", content=user_prompt),
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.0,
-        )
-
-        content = response.content
-        # Basic cleanup
-        if content.startswith("```json"):
-            content = content[7:-3]
-
-        try:
-            tcl = ToolCallList.model_validate_json(content)
-            return tcl.calls
-        except Exception as e:
-            logger.error(f"Tool resolution failed: {e}. Content: {content}")
-            return []
+        selector = ToolSelector(self.client)
+        return await selector.select_tool_calls(task=task, tool_registry=self.registry)
 
     async def _execute_tool(self, call: ToolCall, task_id: int, query_id: str) -> Any:
         try:
@@ -270,4 +223,3 @@ class AgenticExecutor:
         except Exception as e:
             logger.error(f"Tool execution {call.tool} failed: {e}")
             return {"tool": call.tool, "error": str(e)}
-
