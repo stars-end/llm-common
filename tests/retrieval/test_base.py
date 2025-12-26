@@ -170,6 +170,7 @@ async def test_context_manager() -> None:
 @pytest.mark.asyncio
 async def test_abstract_methods_not_implemented() -> None:
     """Test that abstract methods must be implemented."""
+
     class IncompleteBackend(RetrievalBackend):
         pass
 

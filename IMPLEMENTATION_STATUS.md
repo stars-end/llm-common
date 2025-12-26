@@ -74,7 +74,7 @@ Successfully implemented the foundational `llm-common` package - a shared LLM fr
 ## Key Features Implemented
 
 ### 1. Multi-Provider Support
-- ✅ z.ai direct API (glm-4.5, glm-4.6 models)
+- ✅ z.ai direct API (glm-4.7, glm-4.6 models)
 - ✅ OpenRouter (400+ models including z.ai, Claude, GPT-4, Gemini)
 - ✅ OpenAI-compatible interface
 - ✅ Unified `LLMClient` abstraction
@@ -190,7 +190,7 @@ llm-common/
 ### LLM Models (flexible)
 | Model | Input ($/1M tokens) | Output ($/1M tokens) | Use Case |
 |-------|--------------------:|---------------------:|----------|
-| glm-4.5-air (free) | $0.00 | $0.00 | Development/testing |
+| glm-4.7 (free) | $0.00 | $0.00 | Development/testing |
 | glm-4.5 | $0.50 | $0.50 | Budget-conscious |
 | glm-4.6 | $1.00 | $1.00 | Production |
 | gpt-4o-mini | $0.15 | $0.60 | Fast & cheap |

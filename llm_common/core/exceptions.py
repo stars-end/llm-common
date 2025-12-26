@@ -18,9 +18,7 @@ class LLMError(Exception):
 class BudgetExceededError(LLMError):
     """Raised when budget limit is exceeded."""
 
-    def __init__(
-        self, current_cost: float, budget_limit: float, estimated_cost: float
-    ) -> None:
+    def __init__(self, current_cost: float, budget_limit: float, estimated_cost: float) -> None:
         """Initialize error.
 
         Args:

@@ -1,7 +1,8 @@
 """OpenRouter LLM client implementation."""
 
 import time
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from openai import AsyncOpenAI
@@ -39,8 +40,8 @@ class OpenRouterClient(LLMClient):
         "openai/gpt-4o-mini": {"input": 0.15, "output": 0.6},
         "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
         "google/gemini-2.0-flash-exp:free": {"input": 0.0, "output": 0.0},
-        "z-ai/glm-4.5-air:free": {"input": 0.0, "output": 0.0},
-        "z-ai/glm-4.5": {"input": 0.50, "output": 0.50},
+        # NOTE: Keep keys unique; Python dict literals overwrite duplicates.
+        "z-ai/glm-4.7": {"input": 0.0, "output": 0.0},
     }
 
     def __init__(self, config: LLMConfig) -> None:
@@ -76,9 +77,9 @@ class OpenRouterClient(LLMClient):
     async def chat_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Send chat completion request to OpenRouter.
@@ -110,9 +111,7 @@ class OpenRouterClient(LLMClient):
         try:
             response = await self.client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
-                ],
+                messages=[{"role": msg.role, "content": msg.content} for msg in messages],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 **kwargs,
@@ -121,16 +120,18 @@ class OpenRouterClient(LLMClient):
             latency_ms = int((time.time() - start_time) * 1000)
 
             # Calculate actual cost from OpenRouter's response if available
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
+            total_tokens = response.usage.total_tokens if response.usage else 0
+
             usage = LLMUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
             )
 
             # Try to get actual cost from OpenRouter's metadata
-            cost = self._extract_cost_from_response(response) or self._calculate_cost(
-                model, usage
-            )
+            cost = self._extract_cost_from_response(response) or self._calculate_cost(model, usage)
 
             # Track metrics
             if self.config.track_costs:
@@ -161,9 +162,9 @@ class OpenRouterClient(LLMClient):
     async def stream_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream chat completion response from OpenRouter.
@@ -193,9 +194,7 @@ class OpenRouterClient(LLMClient):
         try:
             stream = await self.client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
-                ],
+                messages=[{"role": msg.role, "content": msg.content} for msg in messages],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
@@ -273,7 +272,7 @@ class OpenRouterClient(LLMClient):
 
         return input_cost + output_cost
 
-    def _extract_cost_from_response(self, response: Any) -> Optional[float]:
+    def _extract_cost_from_response(self, response: Any) -> float | None:
         """Extract actual cost from OpenRouter's response metadata.
 
         OpenRouter includes cost information in the response headers/metadata.

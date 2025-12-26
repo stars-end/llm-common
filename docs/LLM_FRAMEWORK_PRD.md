@@ -250,7 +250,7 @@ config = LLMConfig(
 models = [
     "openrouter/anthropic/claude-3.5-sonnet",  # Primary
     "openrouter/openai/gpt-4o",                # Fallback 1
-    "z-ai/glm-4.5"                             # Fallback 2
+    "z-ai/glm-4.7"                             # Fallback 2
 ]
 # Tries each model in sequence until success
 ```

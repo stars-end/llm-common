@@ -7,12 +7,14 @@ with a more portable solution that works with any pgvector-enabled Postgres.
 Recommended for: Prime Radiant and Affordabot production deployments on Railway.
 """
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 try:
+    # type: ignore
+    from pgvector.sqlalchemy import Vector  # type: ignore  # noqa: F401
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-    from pgvector.sqlalchemy import Vector  # type: ignore
 except ImportError as e:
     raise ImportError(
         "PgVectorBackend requires optional dependencies. "
@@ -111,8 +113,8 @@ class PgVectorBackend(RetrievalBackend):
         self,
         query: str,
         top_k: int = 5,
-        min_score: Optional[float] = None,
-        filters: Optional[dict[str, Any]] = None,
+        min_score: float | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> list[RetrievedChunk]:
         """Retrieve relevant chunks using pgvector similarity search.
 
@@ -268,7 +270,7 @@ class PgVectorBackend(RetrievalBackend):
         except Exception as e:
             raise RuntimeError(f"Failed to upsert chunks: {e}") from e
 
-    async def get_by_id(self, chunk_id: str) -> Optional[RetrievedChunk]:
+    async def get_by_id(self, chunk_id: str) -> RetrievedChunk | None:
         """Retrieve a specific chunk by ID.
 
         Args:

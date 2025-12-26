@@ -1,7 +1,8 @@
 """z.ai LLM client implementation."""
 
 import time
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from openai import AsyncOpenAI
@@ -29,13 +30,13 @@ from llm_common.core import (
 class ZaiClient(LLMClient):
     """z.ai LLM client with OpenAI compatibility."""
 
-    BASE_URL = "https://open.z.ai/api/v1"
+    BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
-        "glm-4.5-air": {"input": 0.0, "output": 0.0},  # Free tier
-        "glm-4.5": {"input": 0.50, "output": 0.50},
-        "glm-4.6": {"input": 1.00, "output": 1.00},
+        # NOTE: Keep keys unique; Python dict literals overwrite duplicates.
+        # For now, treat glm-4.7 as free-tier in cost estimation.
+        "glm-4.7": {"input": 0.0, "output": 0.0},
     }
 
     def __init__(self, config: LLMConfig) -> None:
@@ -67,9 +68,9 @@ class ZaiClient(LLMClient):
     async def chat_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Send chat completion request to z.ai.
@@ -102,10 +103,15 @@ class ZaiClient(LLMClient):
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
+                    {
+                        "role": (msg.role if hasattr(msg, "role") else msg["role"]),
+                        "content": (msg.content if hasattr(msg, "content") else msg["content"]),
+                    }
+                    for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
                 **kwargs,
             )
 
@@ -137,7 +143,9 @@ class ZaiClient(LLMClient):
             )
 
         except httpx.TimeoutException as e:
-            raise TimeoutError(f"Request timed out after {self.config.timeout}s: {e}", provider="zai")
+            raise TimeoutError(
+                f"Request timed out after {self.config.timeout}s: {e}", provider="zai"
+            )
         except Exception as e:
             if "rate_limit" in str(e).lower():
                 raise RateLimitError(str(e), provider="zai")
@@ -146,9 +154,9 @@ class ZaiClient(LLMClient):
     async def stream_completion(
         self,
         messages: list[LLMMessage],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream chat completion response from z.ai.
@@ -179,11 +187,16 @@ class ZaiClient(LLMClient):
             stream = await self.client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": msg.role, "content": msg.content} for msg in messages
+                    {
+                        "role": (msg.role if hasattr(msg, "role") else msg["role"]),
+                        "content": (msg.content if hasattr(msg, "content") else msg["content"]),
+                    }
+                    for msg in messages
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
+                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
                 **kwargs,
             )
 
@@ -192,7 +205,9 @@ class ZaiClient(LLMClient):
                     yield chunk.choices[0].delta.content
 
         except httpx.TimeoutException as e:
-            raise TimeoutError(f"Stream timed out after {self.config.timeout}s: {e}", provider="zai")
+            raise TimeoutError(
+                f"Stream timed out after {self.config.timeout}s: {e}", provider="zai"
+            )
         except Exception as e:
             if "rate_limit" in str(e).lower():
                 raise RateLimitError(str(e), provider="zai")
@@ -253,3 +268,18 @@ class ZaiClient(LLMClient):
         output_cost = (usage.completion_tokens / 1_000_000) * pricing["output"]
 
         return input_cost + output_cost
+
+
+class GLMConfig(LLMConfig):
+    """Alias for GLM-specific configuration."""
+    def __init__(self, api_key: str, model: str = "glm-4.7", **kwargs: Any):
+        super().__init__(api_key=api_key, default_model=model, provider="zai", **kwargs)
+
+
+class GLMVisionClient(ZaiClient):
+    """Alias for ZAI client when used for vision tasks."""
+
+    @property
+    def total_tokens_used(self) -> int:
+        # For compatibility with prime-radiant-ai usage
+        return self._total_request_tokens if hasattr(self, "_total_request_tokens") else 0

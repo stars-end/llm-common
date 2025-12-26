@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "llm-common"
-version = "0.4.2"
+version = "0.7.0"
 description = "Shared LLM framework for affordabot and prime-radiant-ai"
 authors = ["Feng Ning <feng@starsend.ai>"]
 readme = "README.md"
@@ -49,8 +49,9 @@ target-version = ["py313"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py312"
 select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.13"

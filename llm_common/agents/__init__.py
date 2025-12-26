@@ -1,45 +1,101 @@
-"""E2E Smoke Agent package for LLM-powered UI testing.
+"""Agents module for llm-common."""
 
-This module provides:
-- UISmokeAgent: Core agent that drives browser via vision LLM
-- GLMVisionClient: Z.AI GLM-4.6V client with vision + tool calling
-- Story loader and models for test specification
-"""
-
-from .exceptions import AgentError, ElementNotFoundError, NavigationError
-from .glm_client import BROWSER_TOOLS, GLMConfig, GLMVisionClient
-from .models import (
-    AgentErrorData,
-    GLMResponse,
-    SmokeRunReport,
-    StepResult,
-    Story,
-    StoryResult,
-    StoryStep,
+from llm_common.agents.callbacks import (
+    AgentCallbacks,
+    ToolCallInfo,
+    ToolCallResult,
 )
-from .story_loader import load_stories_from_directory, load_story
-from .ui_smoke_agent import UISmokeAgent
+from llm_common.agents.executor import AgenticExecutor, StreamEvent
+from llm_common.agents.message_history import Message, MessageHistory
+from llm_common.agents.planner import TaskPlanner
+from llm_common.agents.provenance import (
+    Evidence,
+    EvidenceEnvelope,
+    format_tool_result,
+    validate_citations,
+)
+from llm_common.agents.research_agent import ResearchAgent
+from llm_common.agents.schemas import (
+    ExecutionPlan,
+    PlannedTask,
+    SubTask,
+    SubTaskResult,
+    ToolCall,
+)
+
+
+# Answer synthesis (bd-sdxe)
+from llm_common.agents.synthesizer import (
+    AnswerSynthesizer,
+    StructuredAnswer,
+)
+from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
+from llm_common.agents.tool_context import ToolContextManager
+from llm_common.agents.context_pointers import (
+    ContextPointer,
+    ContextRelevanceSelector,
+    FileContextPointerStore,
+    format_selected_contexts,
+)
+
+# Tool framework (bd-sdxe)
+from llm_common.agents.tools import (
+    BaseTool,
+    ToolMetadata,
+    ToolParameter,
+    ToolRegistry,
+    ToolResult,
+)
+from llm_common.agents.ui_smoke_agent import BrowserAdapter, UISmokeAgent
+from llm_common.agents.utils import load_stories_from_directory
+from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
 
 __all__ = [
-    # Exceptions
-    "AgentError",
-    "NavigationError",
-    "ElementNotFoundError",
-    # GLM Client
+    # Message History
+    "Message",
+    "MessageHistory",
+    # Schemas
+    "SubTask",
+    "PlannedTask",
+    "ExecutionPlan",
+    "ToolCall",
+    "SubTaskResult",
+    # Callbacks
+    "AgentCallbacks",
+    "ToolCallInfo",
+    "ToolCallResult",
+    # Provenance (dmzy.4)
+    "Evidence",
+    "EvidenceEnvelope",
+    "validate_citations",
+    "format_tool_result",
+    # Core agents
+    "TaskPlanner",
+    "AgenticExecutor",
+    "StreamEvent",
+    "ToolContextManager",
+    "ResearchAgent",
+    "UISmokeAgent",
+    "BrowserAdapter",
+    "load_stories_from_directory",
+    # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
-    "GLMResponse",
-    "BROWSER_TOOLS",
-    # Models
-    "AgentErrorData",
-    "StepResult",
-    "StoryResult",
-    "SmokeRunReport",
-    "Story",
-    "StoryStep",
-    # Loaders
-    "load_story",
-    "load_stories_from_directory",
-    # Agent
-    "UISmokeAgent",
+    # Tool framework (bd-sdxe)
+    "BaseTool",
+    "ToolMetadata",
+    "ToolParameter",
+    "ToolResult",
+    "ToolRegistry",
+    # Tool selection
+    "ToolSelectionConfig",
+    "ToolSelector",
+    # Context pointers
+    "ContextPointer",
+    "FileContextPointerStore",
+    "ContextRelevanceSelector",
+    "format_selected_contexts",
+    # Answer synthesis (bd-sdxe)
+    "AnswerSynthesizer",
+    "StructuredAnswer",
 ]

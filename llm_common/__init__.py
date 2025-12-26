@@ -18,10 +18,10 @@ from llm_common.core import (
     WebSearchResponse,
     WebSearchResult,
 )
-from llm_common.providers import GLMClient, GLMConfig, OpenRouterClient, ZaiClient
-from llm_common.retrieval import RetrievalBackend, RetrievedChunk, SupabasePgVectorBackend
-from llm_common.web_search import WebSearchClient
 from llm_common.embeddings import EmbeddingService, OpenAIEmbeddingService
+from llm_common.providers import OpenRouterClient, ZaiClient
+from llm_common.retrieval import RetrievalBackend, RetrievedChunk
+from llm_common.web_search import WebSearchClient
 
 __version__ = "0.1.0"
 
@@ -49,14 +49,11 @@ __all__ = [
     # Providers
     "ZaiClient",
     "OpenRouterClient",
-    "GLMClient",
-    "GLMConfig",
     # Web Search
     "WebSearchClient",
     # Retrieval
     "RetrievalBackend",
     "RetrievedChunk",
-    "SupabasePgVectorBackend",
     # Embeddings
     "EmbeddingService",
     "OpenAIEmbeddingService",

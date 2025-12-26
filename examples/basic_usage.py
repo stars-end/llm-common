@@ -18,7 +18,7 @@ async def example_zai_client() -> None:
 
     config = LLMConfig(
         api_key=os.getenv("ZAI_API_KEY", "your-zai-key"),
-        default_model="glm-4.5-air",  # Free tier
+        default_model="glm-4.7",  # Free tier
         temperature=0.7,
         max_tokens=100,
         provider="zai",
@@ -26,9 +26,7 @@ async def example_zai_client() -> None:
 
     client = ZaiClient(config)
 
-    messages = [
-        LLMMessage(role=MessageRole.USER, content="What is the capital of California?")
-    ]
+    messages = [LLMMessage(role=MessageRole.USER, content="What is the capital of California?")]
 
     response = await client.chat_completion(messages)
 
@@ -55,15 +53,13 @@ async def example_openrouter_client() -> None:
     client = OpenRouterClient(config)
 
     messages = [
-        LLMMessage(
-            role=MessageRole.USER, content="Explain quantum computing in one sentence."
-        )
+        LLMMessage(role=MessageRole.USER, content="Explain quantum computing in one sentence.")
     ]
 
     # Test multiple models
     models = [
         "google/gemini-2.0-flash-exp:free",
-        "z-ai/glm-4.5-air:free",
+        "z-ai/glm-4.7",
         "openai/gpt-4o-mini",
     ]
 
@@ -81,16 +77,14 @@ async def example_streaming() -> None:
 
     config = LLMConfig(
         api_key=os.getenv("ZAI_API_KEY", "your-zai-key"),
-        default_model="glm-4.5-air",
+        default_model="glm-4.7",
         provider="zai",
     )
 
     client = ZaiClient(config)
 
     messages = [
-        LLMMessage(
-            role=MessageRole.USER, content="Write a haiku about artificial intelligence."
-        )
+        LLMMessage(role=MessageRole.USER, content="Write a haiku about artificial intelligence.")
     ]
 
     print("Streaming response: ", end="", flush=True)
@@ -105,7 +99,7 @@ async def example_cost_tracking() -> None:
 
     config = LLMConfig(
         api_key=os.getenv("ZAI_API_KEY", "your-zai-key"),
-        default_model="glm-4.5",  # Paid model
+        default_model="glm-4.7",  # Paid model
         budget_limit_usd=0.10,  # $0.10 budget
         alert_threshold=0.5,  # Alert at 50%
         track_costs=True,

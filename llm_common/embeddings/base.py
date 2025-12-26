@@ -1,17 +1,17 @@
 """Base interface for embedding services."""
 
 from abc import ABC, abstractmethod
-from typing import List
+
 
 class EmbeddingService(ABC):
     """Abstract base class for embedding services.
-    
+
     Provides an interface for generating vector embeddings from text,
     supporting both single query and batch document operations.
     """
 
     @abstractmethod
-    async def embed_query(self, text: str) -> List[float]:
+    async def embed_query(self, text: str) -> list[float]:
         """Generate embedding for a single query string.
 
         Args:
@@ -23,7 +23,7 @@ class EmbeddingService(ABC):
         pass
 
     @abstractmethod
-    async def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of documents.
 
         Args:

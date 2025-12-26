@@ -34,7 +34,7 @@ from llm_common.core import LLMMessage
 zai = ZaiClient(api_key="your-zai-key")
 response = await zai.chat_completion(
     messages=[LLMMessage(role="user", content="Hello!")],
-    model="glm-4.5"
+    model="glm-4.7"
 )
 
 # OpenRouter client (access to 400+ models)
@@ -52,7 +52,6 @@ from llm_common.web_search import WebSearchClient
 
 search = WebSearchClient(
     zai_api_key="your-zai-key",
-    cache_backend="supabase",  # or "memory"
     cache_ttl=86400  # 24 hours
 )
 

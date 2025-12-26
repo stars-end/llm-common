@@ -5,6 +5,22 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-12-26
+
+### Added
+
+- Agent primitives:
+  - `ToolSelector` + `ToolSelectionConfig` for schema-grounded, bounded tool-call selection using a dedicated small model (default `glm-4.5-air` via env vars).
+  - `FileContextPointerStore` + `ContextRelevanceSelector` + `format_selected_contexts` for pointer-based tool output persistence and relevance selection (prompt bloat control).
+
+### Changed
+
+- `AgenticExecutor` now uses `ToolSelector` for tool routing to avoid per-app duplicated selection logic.
+
+### Fixed
+
+- Pricing estimate tables no longer contain duplicate keys (Python dict literals overwrite duplicates); test suite updated to use an explicit “unknown model” for paid/default pricing.
+
 ## [0.4.0] - 2025-12-09
 
 ### Added

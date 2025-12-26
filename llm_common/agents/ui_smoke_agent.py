@@ -1,379 +1,428 @@
-"""UI Smoke Agent - Core agent that drives browser via GLM-4.6V vision.
-
-This agent:
-1. Takes screenshots of the current page
-2. Sends them to GLM-4.6V with step instructions
-3. Executes tool calls (navigate, click, type)
-4. Collects errors and produces results
-"""
-
+import asyncio
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Protocol
+from pathlib import Path
+from typing import Any, Protocol
 
-from .exceptions import ElementNotFoundError, NavigationError
-from .glm_client import BROWSER_TOOLS, GLMVisionClient
-from .models import AgentErrorData as AgentError, StepResult, Story, StoryResult, StoryStep
-
-if TYPE_CHECKING:
-    pass
+from llm_common.agents.schemas import AgentError, AgentStory, StepResult, StoryResult
+from llm_common.core import LLMClient, LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
 
 class BrowserAdapter(Protocol):
-    """Protocol for browser adapters.
-    
-    Implementations must provide async methods for browser control.
-    See prime-radiant-ai/scripts/e2e_agent/browser_adapter.py for reference.
-    """
-    
-    async def navigate(self, path: str) -> None:
-        """Navigate to a URL path."""
-        ...
-    
-    async def click(self, target: str) -> None:
-        """Click an element by selector or text."""
-        ...
-    
-    async def type_text(self, selector: str, text: str) -> None:
-        """Type text into an input field."""
-        ...
-    
-    async def wait_for_selector(self, selector: str, timeout: int = 5000) -> None:
-        """Wait for an element to appear."""
-        ...
-    
-    async def screenshot(self) -> str:
-        """Take a screenshot and return base64-encoded PNG."""
-        ...
-    
-    async def get_current_url(self) -> str:
-        """Get the current page URL."""
-        ...
-    
-    async def get_console_errors(self) -> list[str]:
-        """Get console errors from the page."""
-        ...
-    
-    async def get_network_errors(self) -> list[dict]:
-        """Get network errors (4xx, 5xx responses)."""
-        ...
+    """Protocol for browser interaction."""
 
-
-SYSTEM_PROMPT = """You are a QA automation agent testing a web application.
-
-Your role:
-- Follow the step instructions carefully
-- Use tools to interact with the browser (navigate, click, type_text)
-- Report any errors or issues you observe
-- Call complete_step when the step objective is achieved
-
-Current persona: {persona}
-
-Guidelines:
-- Look at the screenshot carefully to find UI elements
-- Use CSS selectors or text= patterns for clicking
-- If you can't find an element, try alternative approaches
-- Report errors immediately when found
-- Be methodical and thorough
-"""
+    async def navigate(self, path: str) -> None: ...
+    async def click(self, target: str) -> None: ...
+    async def type_text(self, selector: str, text: str) -> None: ...
+    async def screenshot(self) -> str: ...  # Base64 string
+    async def get_console_errors(self) -> list[str]: ...
+    async def get_network_errors(self) -> list[dict[str, Any]]: ...
+    async def wait_for_selector(self, selector: str, timeout_ms: int = 5000) -> None: ...
+    async def get_current_url(self) -> str: ...
+    async def close(self) -> None: ...
 
 
 class UISmokeAgent:
-    """Agent that executes user stories using GLM-4.6V vision."""
+    """Agent that executes UI smoke tests using vision + tool calling."""
 
     def __init__(
         self,
-        glm_client: GLMVisionClient,
+        glm_client: LLMClient,
         browser: BrowserAdapter,
         base_url: str,
         max_tool_iterations: int = 10,
+        evidence_dir: str | None = None,
     ):
-        """Initialize the agent.
+        """Initialize UI Smoke Agent.
 
         Args:
-            glm_client: GLM vision client
-            browser: Browser adapter implementing BrowserAdapter protocol
-            base_url: Base URL of the application
-            max_tool_iterations: Max iterations per step
+            glm_client: LLM client (must support vision)
+            browser: Adapter for browser interactions
+            base_url: Base URL for relative navigation
+            max_tool_iterations: Max actions per step
+            evidence_dir: Directory to save step-completion screenshots
         """
-        self.glm_client = glm_client
+        self.llm = glm_client
         self.browser = browser
         self.base_url = base_url
-        self.max_iterations = max_tool_iterations
+        self.max_tool_iterations = max_tool_iterations
+        self.evidence_dir = Path(evidence_dir) if evidence_dir else None
 
-    async def run_story(self, story: Story) -> StoryResult:
-        """Execute a complete user story.
+        if self.evidence_dir:
+            self.evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    async def run_story(self, story: AgentStory) -> StoryResult:
+        """Run a full user story.
 
         Args:
-            story: Story specification
+            story: The story to execute
 
         Returns:
-            StoryResult with all step results and errors
+            StoryResult with status and errors
         """
-        logger.info(f"Running story: {story.id}")
+        logger.info(f"🚀 Running story: {story.id}")
+        story_errors = []
         step_results = []
-        all_errors = []
 
-        for step in story.steps:
-            try:
-                result = await self._run_step(step, story.persona)
-                step_results.append(result)
-                all_errors.extend(result.errors)
+        for step_data in story.steps:
+            step_id = step_data.get("id", "unknown")
+            description = step_data.get("description", "")
+            validation_criteria = step_data.get("validation_criteria", [])
+            logger.info(f"  Step: {step_id} - {description}")
 
-                if result.status == "fail":
-                    # Check if any blocker errors
-                    blockers = [e for e in result.errors if e.severity == "blocker"]
-                    if blockers:
-                        logger.error(f"Blocker error in step {step.id}, stopping story")
-                        break
+            start_time = time.time()
+            step_result = await self._run_step(
+                story.persona, step_id, description, validation_criteria
+            )
+            step_result.duration_ms = int((time.time() - start_time) * 1000)
 
-            except Exception as e:
-                logger.exception(f"Unexpected error in step {step.id}")
-                error = AgentError(
-                    type="unknown",
-                    severity="blocker",
-                    message=f"Step execution failed: {e}",
-                )
-                step_results.append(StepResult(
-                    step_id=step.id,
-                    status="fail",
-                    errors=[error],
-                ))
-                all_errors.append(error)
+            step_results.append(step_result)
+            story_errors.extend(step_result.errors)
+
+            if step_result.status == "fail":
+                logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
 
-        # Determine overall status
-        failed_steps = [r for r in step_results if r.status == "fail"]
-        status = "fail" if failed_steps else "pass"
-
+        status = "pass" if all(r.status == "pass" for r in step_results) else "fail"
         return StoryResult(
-            story_id=story.id,
-            status=status,
-            step_results=step_results,
-            errors=all_errors,
+            story_id=story.id, status=status, step_results=step_results, errors=story_errors
         )
 
-    async def _run_step(self, step: StoryStep, persona: str) -> StepResult:
-        """Execute a single story step.
-
-        Args:
-            step: Step specification
-            persona: User persona for context
-
-        Returns:
-            StepResult with actions and errors
-        """
-        logger.info(f"Running step: {step.id}")
-        start_time = time.time()
-
+    async def _run_step(
+        self, persona: str, step_id: str, description: str, validation_criteria: list[str] = None
+    ) -> StepResult:
+        """Run a single step of a story."""
         actions_taken = []
         errors = []
-        step_complete = False
-        iteration = 0
 
-        while not step_complete and iteration < self.max_iterations:
-            iteration += 1
-            logger.debug(f"Step {step.id} iteration {iteration}")
-
-            # Capture screenshot
-            screenshot = await self.browser.screenshot()
+        for i in range(self.max_tool_iterations):
+            # 1. Capture state
             current_url = await self.browser.get_current_url()
+            screenshot_b64 = await self.browser.screenshot()
 
-            # Check for console/network errors
-            console_errors = await self.browser.get_console_errors()
-            for err in console_errors:
-                errors.append(AgentError(
-                    type="console_error",
-                    severity="medium",
-                    message=err,
-                    url=current_url,
-                ))
+            # Check for infrastructure errors
+            console = await self.browser.get_console_errors()
+            for msg in console:
+                logger.warning(f"  ⚠️ Browser Console: {msg}")
+                errors.append(
+                    AgentError(
+                        type="console_error", severity="medium", message=msg, url=current_url
+                    )
+                )
 
-            network_errors = await self.browser.get_network_errors()
-            for err in network_errors:
-                severity = "high" if err.get("status", 0) >= 500 else "medium"
-                errors.append(AgentError(
-                    type="api_5xx" if severity == "high" else "api_4xx",
-                    severity=severity,
-                    message=f"{err.get('method')} {err.get('url')} -> {err.get('status')}",
-                    url=current_url,
-                    details=err,
-                ))
+            network = await self.browser.get_network_errors()
+            for err in network:
+                severity = "high" if str(err.get("status", "")).startswith("5") else "medium"
+                errors.append(
+                    AgentError(
+                        type="network_error",
+                        severity=severity,
+                        message=f"{err.get('method')} {err.get('url')}: {err.get('message')}",
+                        url=current_url,
+                    )
+                )
 
-            # Build prompt
-            prompt = f"""Step: {step.id}
-Objective: {step.description}
+            # DEBUG: Save state before LLM call to diagnose Safety/Blank issues
+            if self.evidence_dir:
+                try:
+                    import base64
 
-Current URL: {current_url}
-Exploration budget remaining: {step.exploration_budget}
+                    timestamp = int(time.time())
+                    debug_prefix = f"debug_{step_id}_{i}_{timestamp}"
 
-Look at the screenshot and decide what action to take.
-Call complete_step when the objective is achieved.
-"""
+                    # Save HTML
+                    html_content = await self.browser.get_content()
+                    with open(
+                        self.evidence_dir / f"{debug_prefix}.html", "w", encoding="utf-8"
+                    ) as f:
+                        f.write(html_content)
 
-            # Call GLM
+                    # Save Screenshot
+                    with open(self.evidence_dir / f"{debug_prefix}.png", "wb") as f:
+                        f.write(base64.b64decode(screenshot_b64))
+
+                    logger.info(f"  🔍 Debug evidence saved: {debug_prefix}")
+                except Exception as e:
+                    logger.warning(f"Failed to save debug evidence: {e}")
+
+            # 2. Build prompt
+            prompt = f"Step: {description}\nCurrent URL: {current_url}\nGoal: Complete the step described above."
+
+            validation_msg = ""
+            if validation_criteria:
+                validation_msg = (
+                    "\n\nSTRICT VERIFICATION REQUIRED:\nThe screenshot MUST contain the following text fragments. If ANY are missing, the step is NOT complete and you MUST NOT call complete_step:\n"
+                    + "\n".join([f'- "{t}"' for t in validation_criteria])
+                )
+
+            messages = [
+                LLMMessage(
+                    role=MessageRole.SYSTEM,
+                    content=f"You are a QA Agent. Persona: {persona}. Your goal is to complete the user story step. Use the available tools to interact with the page.\n\nCRITICAL: If the screenshot is blank, black, or essential data is missing, YOU MUST NOT call complete_step.{validation_msg}\nInstead, try to wait or navigate again. If the page remains blank or verification fails after retries, fail the step by not calling complete_step and letting the loop finish.",
+                ),
+                LLMMessage(
+                    role=MessageRole.USER,
+                    content=[
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+                        },
+                    ],
+                ),
+            ]
+
+            # Define tools
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "navigate",
+                        "description": "Navigate to a relative path",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"path": {"type": "string"}},
+                            "required": ["path"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "click",
+                        "description": "Click an element by selector or text",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"target": {"type": "string"}},
+                            "required": ["target"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "type_text",
+                        "description": "Type text into an input field",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "selector": {"type": "string"},
+                                "text": {"type": "string"},
+                            },
+                            "required": ["selector", "text"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "wait",
+                        "description": "Wait for a specified number of seconds (use if page is loading or blank)",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"seconds": {"type": "integer"}},
+                            "required": ["seconds"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "complete_step",
+                        "description": "Call this when the step goal is achieved",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                },
+            ]
+
+            # 3. Call LLM (Vision model - try GLM-4.5v if 4.6v hits safety)
+            # Note: We use raw_response from metadata to get tool calls if not mapped in core LLMResponse
             try:
-                response = await self.glm_client.chat_with_vision(
-                    text=prompt,
-                    image_base64=screenshot,
-                    system_prompt=SYSTEM_PROMPT.format(persona=persona),
-                    tools=BROWSER_TOOLS,
+                response = await self.llm.chat_completion(
+                    messages=messages,
+                    model="glm-4.6v",  # Explicit vision model
+                    tools=tools,
                     tool_choice="auto",
+                    extra_body={"thinking": {"type": "enabled"}},
                 )
             except Exception as e:
-                logger.error(f"GLM API error: {e}")
-                errors.append(AgentError(
-                    type="api_error",
-                    severity="blocker",
-                    message=f"GLM API failed: {e}",
-                ))
-                break
-
-            # Process response
-            if response.tool_calls:
-                for tool_call in response.tool_calls:
-                    func = tool_call.get("function", {})
-                    tool_name = func.get("name")
-                    tool_args = json.loads(func.get("arguments", "{}"))
-
-                    actions_taken.append({
-                        "tool": tool_name,
-                        "args": tool_args,
-                        "iteration": iteration,
-                    })
-
-                    # Execute tool
-                    result, should_complete, new_errors = await self._execute_tool(
-                        tool_name, tool_args
+                error_msg = str(e)
+                if "safety" in error_msg.lower() or "1301" in error_msg or "1214" in error_msg:
+                    logger.warning(
+                        f"GLM-4.6v safety/error triggered, backoff 5s then trying GLM-4.5v: {e}"
                     )
-                    errors.extend(new_errors)
+                    await asyncio.sleep(5)
+                    try:
+                        response = await self.llm.chat_completion(
+                            messages=messages,
+                            model="glm-4.5v",  # Fallback vision model
+                            tools=tools,
+                            tool_choice="auto",
+                            extra_body={"thinking": {"type": "enabled"}},
+                        )
+                    except Exception as e2:
+                        logger.error(f"GLM-4.5v also failed, backoff 10s: {e2}")
+                        await asyncio.sleep(10)
+                        errors.append(
+                            AgentError(
+                                type="llm_error", severity="high", message=str(e2), url=current_url
+                            )
+                        )
+                        continue
+                else:
+                    logger.error(f"LLM call failed: {e}")
+                    errors.append(
+                        AgentError(
+                            type="llm_error", severity="high", message=error_msg, url=current_url
+                        )
+                    )
+                    continue
 
-                    if should_complete:
-                        step_complete = True
-                        break
+            # 4. Handle Tool Calls
+            # The current ZaiClient doesn't automatically map tool_calls to LLMResponse yet
+            raw_response = response.metadata.get("raw_response", {})
+            message = raw_response.get("choices", [{}])[0].get("message", {})
+            tool_calls = message.get("tool_calls", [])
 
-            elif response.content:
-                # No tool calls, just content - log it
-                logger.info(f"GLM response: {response.content[:200]}...")
+            if not tool_calls:
+                # If no tool calls, but there is content, maybe it's just talking
+                if response.content:
+                    logger.info(f"  Agent: {response.content}")
+                else:
+                    logger.warning("Agent produced no tool calls or content. Retrying...")
+                continue
 
-            # Check finish reason
-            if response.finish_reason == "stop" and not response.tool_calls:
-                # Model stopped without completing - may be stuck
-                logger.warning("GLM stopped without tool calls or completion")
-                if iteration >= 3:
-                    errors.append(AgentError(
-                        type="ui_error",
-                        severity="high",
-                        message="Agent stuck - could not complete step",
-                    ))
-                    break
+            for tc in tool_calls:
+                func = tc.get("function", {})
+                name = func.get("name")
+                args_str = func.get("arguments", "{}")
+                try:
+                    args = json.loads(args_str)
+                except Exception:
+                    args = {}
 
-        # Calculate duration
-        duration_ms = int((time.time() - start_time) * 1000)
+                actions_taken.append({"tool": name, "args": args})
 
-        # Determine status
-        blocker_errors = [e for e in errors if e.severity == "blocker"]
-        high_errors = [e for e in errors if e.severity == "high"]
+                if name == "complete_step":
+                    logger.info(
+                        f"  ✅ Step {step_id} marked complete by agent. Running strict verification..."
+                    )
 
-        if blocker_errors:
-            status = "fail"
-        elif step_complete:
-            status = "pass"
-        elif high_errors:
-            status = "fail"
-        else:
-            status = "pass"  # Completed max iterations without blockers
+                    final_screenshot = await self.browser.screenshot()
+
+                    # P0 FIX (r7p): Strict Visual Verification
+                    verified = await self._verify_completion(final_screenshot, validation_criteria)
+
+                    # Capture final evidence if configured
+                    if self.evidence_dir:
+                        import base64
+
+                        filename = f"{step_id}.png"
+                        filepath = self.evidence_dir / filename
+                        with open(filepath, "wb") as f:
+                            f.write(base64.b64decode(final_screenshot))
+
+                        # Save HTML content for debugging
+                        try:
+                            content = await self.browser.get_content()
+                            html_path = self.evidence_dir / f"{step_id}.html"
+                            with open(html_path, "w", encoding="utf-8") as f:
+                                f.write(content)
+                        except Exception as e:
+                            logger.warning(f"Failed to save HTML source: {e}")
+
+                        logger.info(f"  📸 Evidence saved: {filepath}")
+
+                    if not verified:
+                        logger.error(
+                            f"  ❌ Verification failed for {step_id}. Continuing loop/failing."
+                        )
+                        errors.append(
+                            AgentError(
+                                type="verification_error",
+                                severity="high",
+                                message="Strict verification failed: required text not found in final screenshot",
+                                url=current_url,
+                            )
+                        )
+                        continue
+
+                    return StepResult(
+                        step_id=step_id, status="pass", actions_taken=actions_taken, errors=errors
+                    )
+
+                try:
+                    if name == "navigate":
+                        await self.browser.navigate(args.get("path", "/"))
+                    elif name == "click":
+                        await self.browser.click(args.get("target", ""))
+                    elif name == "type_text":
+                        await self.browser.type_text(args.get("selector", ""), args.get("text", ""))
+                    elif name == "wait":
+                        seconds = args.get("seconds", 2)
+                        logger.info(f"  ⏳ Waiting for {seconds} seconds...")
+                        await asyncio.sleep(seconds)
+                except Exception as e:
+                    logger.error(f"  ❌ Tool error ({name}): {e}")
+                    errors.append(
+                        AgentError(
+                            type="ui_error", severity="medium", message=str(e), url=current_url
+                        )
+                    )
 
         return StepResult(
-            step_id=step.id,
-            status=status,
-            actions_taken=actions_taken,
-            errors=errors,
-            duration_ms=duration_ms,
+            step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
         )
 
-    async def _execute_tool(
-        self, tool_name: str, args: dict
-    ) -> tuple[str, bool, list[AgentError]]:
-        """Execute a browser tool.
+    async def _verify_completion(self, screenshot_b64: str, validation_criteria: list[str]) -> bool:
+        """Strictly verify that required markers are present in the final screenshot (P0: affordabot-r7p)."""
+        if not validation_criteria:
+            return True
 
-        Args:
-            tool_name: Name of the tool
-            args: Tool arguments
-
-        Returns:
-            Tuple of (result_message, should_complete_step, errors)
-        """
-        errors = []
-        should_complete = False
+        prompt = "EXACT TEXT EXTRACTION TASK:\nExtract all visible text, numbers, and labels from this UI screenshot. Provide a clean list of text fragments you see. If the image is blank or black, say 'EMPTY'."
 
         try:
-            if tool_name == "navigate":
-                path = args.get("path", "/")
-                await self.browser.navigate(path)
-                return f"Navigated to {path}", False, errors
-
-            elif tool_name == "click":
-                target = args.get("target", "")
-                await self.browser.click(target)
-                return f"Clicked {target}", False, errors
-
-            elif tool_name == "type_text":
-                selector = args.get("selector", "")
-                text = args.get("text", "")
-                await self.browser.type_text(selector, text)
-                return f"Typed into {selector}", False, errors
-
-            elif tool_name == "wait_for_element":
-                selector = args.get("selector", "")
-                timeout = args.get("timeout_ms", 5000)
-                await self.browser.wait_for_selector(selector, timeout)
-                return f"Element {selector} appeared", False, errors
-
-            elif tool_name == "complete_step":
-                notes = args.get("notes", "")
-                logger.info(f"Step completed: {notes}")
-                return "Step completed", True, errors
-
-            elif tool_name == "report_error":
-                error = AgentError(
-                    type=args.get("type", "other"),
-                    severity=args.get("severity", "medium"),
-                    message=args.get("message", "Unknown error"),
-                )
-                errors.append(error)
-                return f"Reported error: {error.message}", False, errors
-
-            else:
-                logger.warning(f"Unknown tool: {tool_name}")
-                return f"Unknown tool: {tool_name}", False, errors
-
-        except NavigationError as e:
-            error = AgentError(
-                type="navigation_error",
-                severity="blocker",
-                message=str(e),
+            response = await self.llm.chat_completion(
+                messages=[
+                    LLMMessage(
+                        role=MessageRole.SYSTEM,
+                        content="You are a precise OCR agent. Extract all text exactly as shown. No conversational filler.",
+                    ),
+                    LLMMessage(
+                        role=MessageRole.USER,
+                        content=[
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+                            },
+                        ],
+                    ),
+                ],
+                model="glm-4.5v",  # Use 4.5v for extraction
+                temperature=0.0,
             )
-            errors.append(error)
-            return f"Navigation failed: {e}", False, errors
 
-        except ElementNotFoundError as e:
-            error = AgentError(
-                type="ui_error",
-                severity="high",
-                message=str(e),
-            )
-            errors.append(error)
-            return f"Element not found: {e}", False, errors
+            extracted_text = response.content.lower()
+            if "empty" in extracted_text and len(extracted_text) < 20:
+                logger.warning("  ❌ Verification failed: Screenshot is reported as EMPTY.")
+                return False
 
+            missing = []
+            for criterion in validation_criteria:
+                # Basic fuzzy check (lowercase, stripped)
+                if criterion.lower().strip() not in extracted_text:
+                    missing.append(criterion)
+
+            if missing:
+                logger.warning(f"  ❌ VERIFICATION FAILED. Missing markers: {missing}")
+                return False
+
+            logger.info("  ✅ VERIFICATION PASSED. All criteria found in screenshot.")
+            return True
         except Exception as e:
-            error = AgentError(
-                type="unknown",
-                severity="high",
-                message=f"Tool execution failed: {e}",
-            )
-            errors.append(error)
-            return f"Tool failed: {e}", False, errors
+            logger.error(f"Verification call failed: {e}")
+            return False  # Fail safe on error
