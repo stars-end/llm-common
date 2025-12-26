@@ -5,6 +5,12 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-12-26
+
+### Added
+
+- `ToolContextManager` now persists `FileContextPointerStore` entries alongside the existing timestamped context JSON, plus a helper to select + format relevant tool outputs for a query.
+
 ## [0.7.0] - 2025-12-26
 
 ### Added
