@@ -22,6 +22,15 @@ Jules-ready packets live in `docs/bd-llm-common-cmm/JULES_DISPATCH.md`. Use them
 - stable public API exports,
 - and release/pinning notes so downstream repos don’t drift.
 
+## 0.2 Scope correction (from recent audit)
+
+llm-common already contains a working “Dexter-inspired” agent framework surface:
+- `TaskPlanner`, `AgenticExecutor`, `ToolRegistry`, `ToolContextManager`, `EvidenceEnvelope`, `AnswerSynthesizer` are exported from `llm_common.agents`.
+
+The remaining high-leverage gaps for this epic are *specific primitives*, not a wholesale framework port:
+- dedicated **ToolSelector** (separate model role from synthesis)
+- **context relevance selection / pointer semantics** (avoid loading all tool outputs into prompts)
+
 ## 1) MVP Stance (explicit)
 
 **MVP = Structured-only advisor responses.**  

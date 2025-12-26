@@ -38,6 +38,10 @@ llm-common should not grow UI code or product-specific prompts; keep it boring.
 
 ## 4) Jules‑Ready Packets
 
+### Not Jules‑Ready (human decisions)
+
+- Tool selection fallback policy details (must remain bounded; no “select all tools” default)
+
 ### Packet: `llm-common-cmm.11` — TOOL_SELECTION_HELPER_AND_MODEL_CONFIG
 
 **Repo:** `llm-common`  
@@ -48,6 +52,7 @@ llm-common should not grow UI code or product-specific prompts; keep it boring.
 1. Public API is importable from `llm_common` (document export path).
 2. Config is stable and minimal (env vars; no app-specific config formats).
 3. Selection output is structured (Pydantic model) and testable (goldens / fixtures).
+4. Fallback policy is bounded and safe (no “select all tools” default).
 
 **Verification:**
 - `poetry run pytest -v`
@@ -71,4 +76,3 @@ llm-common should not grow UI code or product-specific prompts; keep it boring.
 
 **Stop condition:**
 - Apps can adopt incrementally (store pointers first, then enable selection).
-
