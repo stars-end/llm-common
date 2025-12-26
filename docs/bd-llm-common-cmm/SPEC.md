@@ -41,6 +41,10 @@ Epic: `llm-common-cmm`
 - `llm-common-cmm.6` Chore: version/tag alignment
 - `llm-common-cmm.7` Task: publish JSON Schema artifacts in releases
 - `llm-common-cmm.8` Task: MessageHistory helper (Dexter-style)
+- `llm-common-cmm.9` Docs: bundle Dexter ports (glm-4.5-air tool selection, context pointers, message history)
+- `llm-common-cmm.10` Feature: Dexter ports bundle (llm-common primitives)
+- `llm-common-cmm.11` Task: tool selection helper + model config (glm-4.5-air default)
+- `llm-common-cmm.12` Task: context pointer store + relevance selection library
 
 ## 4) Dependency Notes (cross-repo)
 

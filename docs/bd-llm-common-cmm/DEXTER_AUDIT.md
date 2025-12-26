@@ -47,10 +47,10 @@ This is a strong “solo dev” pattern because it avoids embeddings and keeps b
 2. **Citation validation**: standardize a validator that ensures citations reference evidence IDs.
 3. **Optional StreamEvent**: keep streaming as optional (post-MVP), but if enabled, standardize one schema.
 4. **Conversation memory helper**: implement a small library for summary + relevance selection (Dexter-style).
+5. **Tool selection helper**: standardize “small-model tool selection” (default: `glm-4.5-air`) so both apps converge on the same model role + schema-grounded selection.
 
 ## 6) Tracking
 
 This audit is intended to directly influence:
 - `docs/bd-llm-common-cmm/SPEC.md`
 - the canonical big-bang rewrite spec: `prime-radiant-ai/docs/bd-yn9g/SPEC.md`
-
