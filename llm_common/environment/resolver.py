@@ -1,7 +1,6 @@
 import enum
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class RuntimeContext(enum.Enum):
     JULES_SANDBOX = "jules_sandbox"
 
 class ServiceRegistry:
-    def __init__(self, overrides: Optional[dict[str, str]] = None):
+    def __init__(self, overrides: dict[str, str] | None = None):
         self._overrides = overrides or {}
         self._context = self._detect_context()
 

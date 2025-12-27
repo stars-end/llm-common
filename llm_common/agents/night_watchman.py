@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from llm_common.environment.resolver import resolver
 
@@ -13,7 +12,7 @@ class NightWatchman:
     def __init__(self, domain_context: str):
         self.context = domain_context
 
-    async def patrol(self, start_url: Optional[str] = None):
+    async def patrol(self, start_url: str | None = None):
         target = start_url or resolver.get_service_url("frontend")
         logger.info(f"🕵️ Night Watchman starting patrol at {target}")
 

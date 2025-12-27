@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("verification.framework")
 
@@ -46,8 +45,8 @@ class VerificationStory:
     name: str                                  # e.g., "Discovery: LLM Query Generation"
     category: StoryCategory
     phase: int                                 # 0-11 for ordering
-    run: Optional[Callable] = None             # async function to execute
-    screenshot_selector: Optional[str] = None  # CSS selector for screenshot
+    run: Callable | None = None             # async function to execute
+    screenshot_selector: str | None = None  # CSS selector for screenshot
     glm_prompt: str = "Describe the main UI elements visible in this screenshot."
     requires_browser: bool = False             # Does this need Playwright?
     requires_llm: bool = False                 # Does this use LLM calls?
@@ -66,9 +65,9 @@ class StoryResult:
     """Result of executing a verification story."""
     story: VerificationStory
     status: StoryStatus
-    screenshot_path: Optional[str] = None
-    glm_response: Optional[str] = None
-    error: Optional[str] = None
+    screenshot_path: str | None = None
+    glm_response: str | None = None
+    error: str | None = None
     duration_seconds: float = 0.0
     llm_calls: int = 0
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -85,8 +84,8 @@ class VerificationConfig:
     artifacts_dir: str = "artifacts/verification"
     enable_screenshots: bool = True
     enable_glm_validation: bool = True
-    glm_api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    glm_api_key: str | None = None
+    base_url: str | None = None
     timeout_seconds: int = 300
     parallel: bool = False  # Run stories in parallel?
 

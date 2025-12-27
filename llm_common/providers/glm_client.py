@@ -14,7 +14,7 @@ Use this for:
 
 import json
 import time
-from typing import Any, Optional
+from typing import Any
 from urllib import request
 from urllib.error import HTTPError, URLError
 
@@ -94,9 +94,9 @@ class GLMClient:
     def chat(
         self,
         messages: list[dict[str, Any]],
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs: Any,
     ) -> GLMResponse:
         """Send chat completion request (no tools).
@@ -135,9 +135,9 @@ class GLMClient:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         tool_choice: str = "auto",
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -190,10 +190,10 @@ class GLMClient:
     def _call_api(
         self,
         messages: list[dict[str, Any]],
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        tools: Optional[list[dict[str, Any]]] = None,
+        max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
         tool_choice: str = "auto",
         **kwargs: Any,
     ) -> GLMResponse:
@@ -246,7 +246,7 @@ class GLMClient:
             method="POST",
         )
 
-        start_time = time.time()
+        time.time()
 
         try:
             with request.urlopen(req, timeout=self.config.timeout) as resp:

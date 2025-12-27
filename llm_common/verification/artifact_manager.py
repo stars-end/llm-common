@@ -8,7 +8,6 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("verification.artifacts")
 
@@ -24,7 +23,7 @@ class ArtifactManager:
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    def create_run_dir(self, run_id: Optional[str] = None) -> Path:
+    def create_run_dir(self, run_id: str | None = None) -> Path:
         """Create directory for a verification run."""
         if run_id is None:
             run_id = f"verify-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -45,7 +44,7 @@ class ArtifactManager:
         """Generate log file path."""
         return run_dir / "logs" / f"{name}.log"
 
-    def archive_run(self, run_id: str, archive_dir: Optional[str] = None) -> Path:
+    def archive_run(self, run_id: str, archive_dir: str | None = None) -> Path:
         """Archive a verification run to compressed format."""
         run_dir = self.base_dir / run_id
         if not run_dir.exists():
@@ -81,7 +80,7 @@ class ArtifactManager:
 
         return removed
 
-    def get_latest_run(self) -> Optional[Path]:
+    def get_latest_run(self) -> Path | None:
         """Get the most recent verification run directory."""
         runs = sorted(
             [d for d in self.base_dir.iterdir() if d.is_dir() and d.name.startswith("verify-")],

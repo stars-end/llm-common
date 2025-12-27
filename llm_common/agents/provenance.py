@@ -13,7 +13,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -35,7 +35,7 @@ class Evidence:
     label: str = ""
     url: str = ""
     content: str = ""
-    excerpt: Optional[str] = None
+    excerpt: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     derived_from: list[str] = field(default_factory=list)
 
@@ -55,7 +55,7 @@ class EvidenceEnvelope:
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     source_tool: str = ""
 
-    def get_by_id(self, evidence_id: str) -> Optional[Evidence]:
+    def get_by_id(self, evidence_id: str) -> Evidence | None:
         """Get evidence by its ID."""
         return next((e for e in self.evidence if e.id == evidence_id), None)
 
@@ -94,9 +94,9 @@ def validate_citations(answer: str, envelope: EvidenceEnvelope) -> tuple[bool, l
 
 def format_tool_result(
     tool_name: str,
-    url: Optional[str] = None,
+    url: str | None = None,
     content: str = "",
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
 ) -> Evidence:
     """Create an Evidence object from a tool result.
 

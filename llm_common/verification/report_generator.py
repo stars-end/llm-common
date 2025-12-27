@@ -7,7 +7,6 @@ Generates Markdown reports with embedded screenshots and JSON summaries.
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 from .framework import StoryCategory, StoryStatus, VerificationReport
 
@@ -27,7 +26,7 @@ class ReportGenerator:
     def __init__(self, report: VerificationReport):
         self.report = report
 
-    def generate_markdown(self, output_path: Optional[Path] = None) -> str:
+    def generate_markdown(self, output_path: Path | None = None) -> str:
         """Generate Markdown report with embedded screenshots."""
         r = self.report
 
@@ -131,7 +130,7 @@ class ReportGenerator:
 
         return lines
 
-    def generate_json(self, output_path: Optional[Path] = None) -> dict:
+    def generate_json(self, output_path: Path | None = None) -> dict:
         """Generate JSON summary for machine consumption."""
         r = self.report
 
