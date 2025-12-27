@@ -12,6 +12,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from llm_common.agents.provenance import EvidenceEnvelope
+
 
 @dataclass
 class ToolParameter:
@@ -53,12 +55,14 @@ class ToolResult:
         success: Whether the tool execution succeeded
         data: The result data from the tool
         source_urls: URLs that sourced this data (for provenance/citations)
+        evidence: Optional evidence envelopes (Dexter-style provenance)
         error: Error message if execution failed
     """
 
     success: bool
     data: Any = None
     source_urls: list[str] = field(default_factory=list)
+    evidence: list[EvidenceEnvelope] = field(default_factory=list)
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,6 +71,7 @@ class ToolResult:
             "success": self.success,
             "data": self.data,
             "source_urls": self.source_urls,
+            "evidence": [e.model_dump() for e in self.evidence],
             "error": self.error,
         }
 
