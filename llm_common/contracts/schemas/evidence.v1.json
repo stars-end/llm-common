@@ -1,0 +1,126 @@
+{
+  "$id": "https://github.com/stars-end/llm-common/contracts/evidence.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Represents a piece of evidence with full provenance.\n\nAttributes:\n    id: Unique identifier (UUID)\n    kind: Type of evidence (url, internal, legislation, derived)\n    label: Human-readable label\n    url: Source URL if applicable\n    content: Full content of the evidence\n    excerpt: Relevant excerpt from content\n    metadata: Additional metadata\n    derived_from: IDs of source evidence this was derived from\n    tool_name: Optional tool name that produced this evidence\n    tool_args: Optional tool arguments (when applicable)\n    retrieved_at: ISO timestamp of retrieval\n    content_hash: Optional hash for integrity checking\n    internal_ref: Optional internal reference (e.g., account/session ID)\n    confidence: Optional confidence score (0.0-1.0)",
+  "properties": {
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "content": {
+      "default": "",
+      "title": "Content",
+      "type": "string"
+    },
+    "content_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Hash"
+    },
+    "derived_from": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Derived From",
+      "type": "array"
+    },
+    "excerpt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Excerpt"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "internal_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Internal Ref"
+    },
+    "kind": {
+      "default": "url",
+      "description": "url | internal | legislation | derived",
+      "title": "Kind",
+      "type": "string"
+    },
+    "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "retrieved_at": {
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "tool_args": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Args"
+    },
+    "tool_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Name"
+    },
+    "url": {
+      "default": "",
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "title": "Evidence",
+  "type": "object"
+}

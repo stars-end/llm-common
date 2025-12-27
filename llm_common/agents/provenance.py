@@ -11,13 +11,13 @@ Feature-Key: affordabot-dmzy.4
 
 import re
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-@dataclass
-class Evidence:
+class Evidence(BaseModel):
     """Represents a piece of evidence with full provenance.
     
     Attributes:
@@ -29,19 +29,32 @@ class Evidence:
         excerpt: Relevant excerpt from content
         metadata: Additional metadata
         derived_from: IDs of source evidence this was derived from
+        tool_name: Optional tool name that produced this evidence
+        tool_args: Optional tool arguments (when applicable)
+        retrieved_at: ISO timestamp of retrieval
+        content_hash: Optional hash for integrity checking
+        internal_ref: Optional internal reference (e.g., account/session ID)
+        confidence: Optional confidence score (0.0-1.0)
     """
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    kind: str = "url"  # "url", "internal", "legislation", "derived"
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    kind: str = Field(default="url", description="url | internal | legislation | derived")
     label: str = ""
     url: str = ""
     content: str = ""
-    excerpt: Optional[str] = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    derived_from: list[str] = field(default_factory=list)
+    excerpt: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    derived_from: list[str] = Field(default_factory=list)
+    tool_name: str | None = None
+    tool_args: dict[str, Any] | None = None
+    retrieved_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    content_hash: str | None = None
+    internal_ref: str | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
-@dataclass
-class EvidenceEnvelope:
+class EvidenceEnvelope(BaseModel):
     """A container for a collection of evidence with tracking.
     
     Attributes:
@@ -49,19 +62,23 @@ class EvidenceEnvelope:
         evidence: List of Evidence objects
         created_at: ISO timestamp of creation
         source_tool: Name of the tool that created this envelope
+        source_query: Optional query/input that produced this envelope
     """
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    evidence: List[Evidence] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    evidence: list[Evidence] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     source_tool: str = ""
+    source_query: str | None = None
     
-    def get_by_id(self, evidence_id: str) -> Optional[Evidence]:
+    def get_by_id(self, evidence_id: str) -> Evidence | None:
         """Get evidence by its ID."""
-        return next((e for e in self.evidence if e.id == evidence_id), None)
+        return next((item for item in self.evidence if item.id == evidence_id), None)
     
     def get_urls(self) -> list[str]:
         """Get all URLs in this envelope."""
-        return [e.url for e in self.evidence if e.url]
+        return [item.url for item in self.evidence if item.url]
     
     def add(self, evidence: Evidence) -> None:
         """Add evidence to the envelope."""
@@ -117,4 +134,5 @@ def format_tool_result(
         url=url or "",
         content=content,
         metadata=metadata or {},
+        tool_name=tool_name,
     )

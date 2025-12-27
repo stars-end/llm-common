@@ -5,6 +5,17 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-12-27
+
+### Added
+
+- Versioned provenance contracts (JSON Schema) under `llm_common/contracts/schemas/*.json` (`Evidence`, `EvidenceEnvelope`, `ToolResult`).
+
+### Changed
+
+- `Evidence` / `EvidenceEnvelope` now use Pydantic models (API compatible) and include optional tool metadata fields.
+- `ToolResult` now supports `evidence: list[EvidenceEnvelope]` for Dexter-style provenance plumbing.
+
 ## [0.7.2] - 2025-12-26
 
 ### Fixed
