@@ -1,12 +1,14 @@
 import json
+import logging
 import os
-from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from llm_common.agents.schemas import PlannedTask, ToolCall
 from llm_common.core import LLMClient, LLMMessage
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:
@@ -20,24 +22,23 @@ def _parse_int(value: str | None, default: int) -> int:
         return default
     try:
         return int(value)
-    except ValueError:
+    except (ValueError, TypeError):
         return default
 
 
-@dataclass(frozen=True)
-class ToolSelectionConfig:
-    model: str = "glm-4.5-air"
-    fallback_model: str | None = None
-    max_calls: int = 5
-    timeout_s: int = 30
-    temperature: float = 0.0
-    fail_closed: bool = True
+class ToolSelectionConfig(BaseModel):
+    model: str = Field(default="glm-4.5-air")
+    fallback_model: str | None = Field(default=None)
+    max_calls: int = Field(default=5, ge=1, le=20)
+    timeout_s: int = Field(default=30, ge=1, le=120)
+    temperature: float = Field(default=0.0, ge=0.0, le=1.0)
+    fail_closed: bool = Field(default=True)
 
-    @staticmethod
-    def from_env() -> "ToolSelectionConfig":
-        return ToolSelectionConfig(
+    @classmethod
+    def from_env(cls) -> "ToolSelectionConfig":
+        return cls(
             model=os.getenv("LLM_COMMON_TOOL_SELECTION_MODEL", "glm-4.5-air"),
-            fallback_model=os.getenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL") or None,
+            fallback_model=os.getenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL"),
             max_calls=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_MAX_CALLS"), 5),
             timeout_s=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_TIMEOUT_S"), 30),
             fail_closed=_parse_bool(
@@ -81,35 +82,51 @@ class ToolSelector:
             f"Context (optional): {json.dumps(context or {}, ensure_ascii=False)}\n"
         )
 
-        async def _attempt(model: str) -> list[ToolCall]:
-            response = await self._client.chat_completion(
-                messages=[
-                    LLMMessage(role="system", content=system_prompt),
-                    LLMMessage(role="user", content=user_prompt),
-                ],
-                model=model,
-                temperature=self._config.temperature,
-                response_format={"type": "json_object"},
-                timeout=self._config.timeout_s,
-            )
+        async def _attempt(model: str) -> list[ToolCall] | None:
+            try:
+                response = await self._client.chat_completion(
+                    messages=[
+                        LLMMessage(role="system", content=system_prompt),
+                        LLMMessage(role="user", content=user_prompt),
+                    ],
+                    model=model,
+                    temperature=self._config.temperature,
+                    response_format={"type": "json_object"},
+                    timeout=self._config.timeout_s,
+                )
+                content = response.content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+                parsed = _ToolCallList.model_validate_json(content)
+                return parsed.calls[: self._config.max_calls]
+            except ValidationError:
+                logger.warning(f"Failed to validate tool calls from {model}", exc_info=True)
+                return None
+            except Exception:
+                logger.error(f"LLM call failed for tool selection with {model}", exc_info=True)
+                return None
 
-            content = response.content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.endswith("```"):
-                content = content[:-3]
-            content = content.strip()
+        # Primary model
+        calls = await _attempt(self._config.model)
+        if calls is not None:
+            return calls
 
-            parsed = _ToolCallList.model_validate_json(content)
-            return parsed.calls[: self._config.max_calls]
+        # Fallback model
+        if self._config.fallback_model:
+            logger.info(f"Tool selection failed, trying fallback: {self._config.fallback_model}")
+            calls = await _attempt(self._config.fallback_model)
+            if calls is not None:
+                return calls
 
-        try:
-            return await _attempt(self._config.model)
-        except Exception:
-            if self._config.fallback_model:
-                try:
-                    return await _attempt(self._config.fallback_model)
-                except Exception:
-                    pass
+        # Fail closed/open
+        if self._config.fail_closed:
+            logger.warning("Tool selection failed on primary and fallback, returning empty.")
+            return []
+        else:
+            # Per spec, do not expand scope.
+            logger.warning("Tool selection failed, fail_closed=False, returning empty.")
             return []
 
