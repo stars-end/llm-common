@@ -11,10 +11,8 @@ This pattern is suitable for:
 - End-user journey validation
 """
 
-import base64
 import json
 import os
-from typing import Any
 
 
 def main() -> None:
@@ -173,7 +171,7 @@ def main() -> None:
 
     # Show metrics
     metrics = client.get_metrics()
-    print(f"\n=== Metrics ===")
+    print("\n=== Metrics ===")
     print(f"Total API calls: {metrics['total_calls']}")
     print(f"Total tokens used: {metrics['total_tokens']}")
 

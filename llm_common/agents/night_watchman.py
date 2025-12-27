@@ -1,8 +1,7 @@
-import asyncio
 import logging
-from typing import List, Dict, Optional
+from typing import Optional
+
 from llm_common.environment.resolver import resolver
-from llm_common.qa.smart_page import SmartPage
 
 logger = logging.getLogger(__name__)
 

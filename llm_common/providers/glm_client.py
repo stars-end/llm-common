@@ -28,9 +28,7 @@ from tenacity import (
 from llm_common.core import LLMError, RateLimitError, TimeoutError
 from llm_common.providers.glm_models import (
     GLMConfig,
-    GLMMessage,
     GLMResponse,
-    GLMTool,
 )
 
 

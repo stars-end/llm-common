@@ -4,13 +4,12 @@ Report Generator for Unified Verification Framework.
 Generates Markdown reports with embedded screenshots and JSON summaries.
 """
 
-from pathlib import Path
-from datetime import datetime
-from typing import Optional
 import json
 import logging
+from pathlib import Path
+from typing import Optional
 
-from .framework import VerificationReport, StoryStatus, StoryCategory
+from .framework import StoryCategory, StoryStatus, VerificationReport
 
 logger = logging.getLogger("verification.report")
 
@@ -18,75 +17,75 @@ logger = logging.getLogger("verification.report")
 class ReportGenerator:
     """
     Generates verification reports in Markdown and JSON formats.
-    
+
     Reports include:
     - Summary table (total/passed/failed/LLM calls)
     - Per-category breakdown
     - Each story with screenshot and GLM response
     """
-    
+
     def __init__(self, report: VerificationReport):
         self.report = report
-    
+
     def generate_markdown(self, output_path: Optional[Path] = None) -> str:
         """Generate Markdown report with embedded screenshots."""
         r = self.report
-        
+
         lines = [
-            f"# Verification Report",
-            f"",
+            "# Verification Report",
+            "",
             f"**Run ID**: `{r.config.run_id}`",
             f"**Started**: {r.start_time}",
             f"**Completed**: {r.end_time}",
             f"**Base URL**: {r.config.base_url or 'N/A'}",
-            f"",
-            f"---",
-            f"",
-            f"## Summary",
-            f"",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "",
+            "---",
+            "",
+            "## Summary",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Total Stories | {r.total} |",
             f"| Passed | {r.passed} |",
             f"| Failed | {r.failed} |",
             f"| Skipped | {r.skipped} |",
             f"| Success Rate | {r.success_rate:.1f}% |",
             f"| LLM Calls | {r.total_llm_calls} |",
-            f"",
+            "",
         ]
-        
+
         # RAG Pipeline section
         rag_results = r.by_category(StoryCategory.RAG_PIPELINE)
         if rag_results:
             lines.extend(self._category_section("Affordabot RAG Pipeline", rag_results))
-        
+
         # User Stories section
         user_results = r.by_category(StoryCategory.USER_STORY)
         if user_results:
             lines.extend(self._category_section("Prime-Radiant User Stories", user_results))
-        
+
         # Integration section
         int_results = r.by_category(StoryCategory.INTEGRATION)
         if int_results:
             lines.extend(self._category_section("Integration Tests", int_results))
-        
+
         content = "\n".join(lines)
-        
+
         if output_path:
             output_path.write_text(content)
             logger.info(f"📄 Report saved: {output_path}")
-        
+
         return content
-    
+
     def _category_section(self, title: str, results: list) -> list:
         """Generate section for a category."""
         lines = [
-            f"---",
-            f"",
+            "---",
+            "",
             f"## {title}",
-            f"",
+            "",
         ]
-        
+
         for result in results:
             status_emoji = {
                 StoryStatus.PASSED: "✅",
@@ -95,47 +94,47 @@ class ReportGenerator:
                 StoryStatus.PENDING: "⏳",
                 StoryStatus.RUNNING: "🔄",
             }.get(result.status, "❓")
-            
+
             lines.extend([
                 f"### {result.story.id} {status_emoji}",
-                f"",
+                "",
                 f"**{result.story.name}**",
-                f"",
+                "",
                 f"- Status: {result.status.value}",
                 f"- Duration: {result.duration_seconds:.2f}s",
                 f"- LLM Calls: {result.llm_calls}",
             ])
-            
+
             if result.error:
                 lines.extend([
                     f"- Error: `{result.error}`",
                 ])
-            
+
             if result.screenshot_path:
                 # Use relative path for portability
                 screenshot_name = Path(result.screenshot_path).name
                 lines.extend([
-                    f"",
+                    "",
                     f"![{result.story.name}](screenshots/{screenshot_name})",
                 ])
-            
+
             if result.glm_response:
                 lines.extend([
-                    f"",
-                    f"**GLM-4.6V Analysis**:",
-                    f"```",
+                    "",
+                    "**GLM-4.6V Analysis**:",
+                    "```",
                     result.glm_response[:500],  # Truncate long responses
-                    f"```",
+                    "```",
                 ])
-            
+
             lines.append("")
-        
+
         return lines
-    
+
     def generate_json(self, output_path: Optional[Path] = None) -> dict:
         """Generate JSON summary for machine consumption."""
         r = self.report
-        
+
         summary = {
             "run_id": r.config.run_id,
             "start_time": r.start_time,
@@ -163,21 +162,21 @@ class ReportGenerator:
                 for result in r.results
             ],
         }
-        
+
         if output_path:
             output_path.write_text(json.dumps(summary, indent=2))
             logger.info(f"📄 JSON summary saved: {output_path}")
-        
+
         return summary
-    
+
     def save_all(self) -> tuple[Path, Path]:
         """Save both Markdown and JSON reports."""
         run_dir = self.report.config.run_dir
-        
+
         md_path = run_dir / "report.md"
         json_path = run_dir / "summary.json"
-        
+
         self.generate_markdown(md_path)
         self.generate_json(json_path)
-        
+
         return md_path, json_path
