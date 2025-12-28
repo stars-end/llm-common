@@ -5,13 +5,13 @@ These stories cover the full RAG pipeline from discovery to LLM analysis.
 Import these into affordabot's unified_verify.py.
 """
 
-from ..framework import VerificationStory, StoryCategory
+from ..framework import StoryCategory, VerificationStory
 
 
 def get_rag_stories() -> list[VerificationStory]:
     """
     Return all RAG pipeline verification stories.
-    
+
     Stories cover:
     - Phase 0-1: Environment & Discovery (LLM query generation)
     - Phase 2-5: Search, Ingestion, Embedding, Vector Store

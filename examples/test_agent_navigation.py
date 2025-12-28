@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from llm_common import GLMClient, GLMConfig
-from llm_common.agents import UISmokeAgent, Story, StoryStep
+from llm_common.agents import Story, StoryStep, UISmokeAgent
 
 logging.basicConfig(
     level=logging.DEBUG,  # Enable debug for detailed logs
@@ -82,7 +82,7 @@ class SimpleBrowserAdapter:
                 try:
                     await self.page.click(target, timeout=5000)
                     return
-                except:
+                except Exception:
                     pass
 
             # Try as text
@@ -234,7 +234,7 @@ async def main():
                 logger.error(f"   [{error.severity}] {error.type}: {error.message}")
             exit_code = 1
 
-    except Exception as e:
+    except Exception:
         logger.exception("Test failed with exception")
         exit_code = 1
     finally:

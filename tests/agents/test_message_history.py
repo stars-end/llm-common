@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from llm_common.agents.message_history import MessageHistory, Message
+import pytest
+
+from llm_common.agents.message_history import Message, MessageHistory
 from llm_common.core.models import LLMResponse, LLMUsage
 
 

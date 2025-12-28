@@ -5,6 +5,12 @@ from llm_common.agents.callbacks import (
     ToolCallInfo,
     ToolCallResult,
 )
+from llm_common.agents.context_pointers import (
+    ContextPointer,
+    ContextRelevanceSelector,
+    FileContextPointerStore,
+    format_selected_contexts,
+)
 from llm_common.agents.executor import AgenticExecutor, StreamEvent
 from llm_common.agents.message_history import Message, MessageHistory
 from llm_common.agents.planner import TaskPlanner
@@ -23,20 +29,13 @@ from llm_common.agents.schemas import (
     ToolCall,
 )
 
-
 # Answer synthesis (bd-sdxe)
 from llm_common.agents.synthesizer import (
     AnswerSynthesizer,
     StructuredAnswer,
 )
-from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
 from llm_common.agents.tool_context import ToolContextManager
-from llm_common.agents.context_pointers import (
-    ContextPointer,
-    ContextRelevanceSelector,
-    FileContextPointerStore,
-    format_selected_contexts,
-)
+from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
 
 # Tool framework (bd-sdxe)
 from llm_common.agents.tools import (

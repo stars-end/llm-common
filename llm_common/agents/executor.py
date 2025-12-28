@@ -1,7 +1,8 @@
 import asyncio
 import logging
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Optional
+from typing import Any
 
 from llm_common.agents.callbacks import AgentCallbacks, ToolCallInfo, ToolCallResult
 from llm_common.agents.tool_context import ToolContextManager
@@ -35,7 +36,7 @@ class AgenticExecutor:
         self,
         plan: ExecutionPlan,
         query_id: str,
-        callbacks: Optional[AgentCallbacks] = None,
+        callbacks: AgentCallbacks | None = None,
     ) -> list[SubTaskResult]:
         """
         Execute an entire plan by running each task sequentially.
@@ -64,7 +65,7 @@ class AgenticExecutor:
         self,
         plan: ExecutionPlan,
         query_id: str,
-        callbacks: Optional[AgentCallbacks] = None,
+        callbacks: AgentCallbacks | None = None,
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         Execute plan as async generator yielding stream events.
@@ -148,7 +149,7 @@ class AgenticExecutor:
         self,
         task: PlannedTask,
         query_id: str,
-        callbacks: Optional[AgentCallbacks] = None,
+        callbacks: AgentCallbacks | None = None,
     ) -> SubTaskResult:
         """
         Execute a single task:

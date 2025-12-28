@@ -1,7 +1,9 @@
 import os
 import unittest
 from unittest.mock import patch
-from llm_common.environment.resolver import ServiceRegistry, RuntimeContext
+
+from llm_common.environment.resolver import RuntimeContext, ServiceRegistry
+
 
 class TestServiceRegistry(unittest.TestCase):
     def test_default_context(self):

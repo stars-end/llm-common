@@ -1,6 +1,5 @@
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, List
 
 from llm_common import LLMClient, LLMMessage, MessageRole
 
@@ -17,9 +16,9 @@ class MessageHistory:
     """Manages multi-turn conversation memory."""
 
     def __init__(self, llm_client: LLMClient):
-        self._messages: List[Message] = []
+        self._messages: list[Message] = []
         self._llm_client = llm_client
-        self._relevance_cache: Dict[str, List[Message]] = {}
+        self._relevance_cache: dict[str, list[Message]] = {}
 
     async def add_message(self, query: str, answer: str):
         """Adds a message to the history and generates a summary."""
@@ -41,7 +40,7 @@ Summary:
         """Generates a SHA256 hash for a given query string."""
         return hashlib.sha256(query.encode()).hexdigest()
 
-    async def select_relevant_messages(self, current_query: str) -> List[Message]:
+    async def select_relevant_messages(self, current_query: str) -> list[Message]:
         """Selects relevant messages from history based on the current query."""
         if not self.has_messages():
             return []
@@ -91,7 +90,7 @@ Relevant turns:
         self._relevance_cache[query_hash] = relevant_messages
         return relevant_messages
 
-    def format_for_planning(self, messages: List[Message]) -> str:
+    def format_for_planning(self, messages: list[Message]) -> str:
         """Formats messages for planning (queries and summaries)."""
         if not messages:
             return ""
@@ -102,7 +101,7 @@ Relevant turns:
         )
         return f"Previous conversation history:\n{formatted_history}"
 
-    def format_for_answer(self, messages: List[Message]) -> str:
+    def format_for_answer(self, messages: list[Message]) -> str:
         """Formats messages for answering (queries and full answers)."""
         if not messages:
             return ""

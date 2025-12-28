@@ -5,13 +5,13 @@ These stories cover all user-facing functionality with visual validation.
 Import these into prime-radiant's unified_verify.py.
 """
 
-from ..framework import VerificationStory, StoryCategory
+from ..framework import StoryCategory, VerificationStory
 
 
 def get_user_stories() -> list[VerificationStory]:
     """
     Return all Prime-Radiant user story verifications.
-    
+
     Stories cover:
     - Health check
     - Authentication

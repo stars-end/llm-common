@@ -12,14 +12,14 @@ Feature-Key: affordabot-dmzy.4
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class Evidence(BaseModel):
     """Represents a piece of evidence with full provenance.
-    
+
     Attributes:
         id: Unique identifier (UUID)
         kind: Type of evidence (url, internal, legislation, derived)
@@ -56,7 +56,7 @@ class Evidence(BaseModel):
 
 class EvidenceEnvelope(BaseModel):
     """A container for a collection of evidence with tracking.
-    
+
     Attributes:
         id: Unique identifier for this envelope
         evidence: List of Evidence objects
@@ -71,19 +71,19 @@ class EvidenceEnvelope(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     source_tool: str = ""
     source_query: str | None = None
-    
+
     def get_by_id(self, evidence_id: str) -> Evidence | None:
         """Get evidence by its ID."""
         return next((item for item in self.evidence if item.id == evidence_id), None)
-    
+
     def get_urls(self) -> list[str]:
         """Get all URLs in this envelope."""
         return [item.url for item in self.evidence if item.url]
-    
+
     def add(self, evidence: Evidence) -> None:
         """Add evidence to the envelope."""
         self.evidence.append(evidence)
-    
+
     def merge(self, other: "EvidenceEnvelope") -> None:
         """Merge another envelope into this one."""
         self.evidence.extend(other.evidence)
@@ -91,40 +91,40 @@ class EvidenceEnvelope(BaseModel):
 
 def validate_citations(answer: str, envelope: EvidenceEnvelope) -> tuple[bool, list[str]]:
     """Check if all citation IDs in the answer exist in the envelope.
-    
+
     Looks for UUID patterns in square brackets like [a1b2c3d4-e5f6-...].
-    
+
     Args:
         answer: The answer text to check
         envelope: The EvidenceEnvelope to validate against
-        
+
     Returns:
         Tuple of (is_valid, missing_ids)
     """
     # Match UUIDs in square brackets
     uuid_pattern = r'\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]'
     cited_ids = re.findall(uuid_pattern, answer, re.IGNORECASE)
-    
+
     missing = [cid for cid in cited_ids if not envelope.get_by_id(cid)]
     return len(missing) == 0, missing
 
 
 def format_tool_result(
     tool_name: str,
-    url: Optional[str] = None,
+    url: str | None = None,
     content: str = "",
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
 ) -> Evidence:
     """Create an Evidence object from a tool result.
-    
+
     Helper function for tools to create properly formatted evidence.
-    
+
     Args:
         tool_name: Name of the tool
         url: Optional source URL
         content: Content from the tool
         metadata: Optional additional metadata
-        
+
     Returns:
         Evidence object
     """

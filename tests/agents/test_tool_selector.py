@@ -1,7 +1,6 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-from pydantic import ValidationError
 
 from llm_common.agents.schemas import PlannedTask, SubTask
 from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector

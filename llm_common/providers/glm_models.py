@@ -1,8 +1,8 @@
 """GLM-4.6V specific models for vision and tool calling."""
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class GLMTextContent(BaseModel):
@@ -25,7 +25,7 @@ class GLMImageContent(BaseModel):
     image_url: GLMImageURL
 
 
-GLMContent = Union[str, list[Union[GLMTextContent, GLMImageContent]]]
+GLMContent = Union[str, list[GLMTextContent | GLMImageContent]]
 
 
 class GLMMessage(BaseModel):
@@ -33,9 +33,9 @@ class GLMMessage(BaseModel):
 
     role: Literal["system", "user", "assistant", "tool"]
     content: GLMContent
-    name: Optional[str] = None
-    tool_calls: Optional[list[dict[str, Any]]] = None
-    tool_call_id: Optional[str] = None
+    name: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    tool_call_id: str | None = None
 
 
 class GLMToolFunction(BaseModel):

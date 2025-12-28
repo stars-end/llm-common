@@ -4,7 +4,6 @@ import json
 from importlib import resources
 from typing import Any
 
-
 _CONTRACT_FILES: dict[str, str] = {
     "evidence.v1": "schemas/evidence.v1.json",
     "evidence_envelope.v1": "schemas/evidence_envelope.v1.json",

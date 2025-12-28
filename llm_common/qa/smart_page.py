@@ -1,6 +1,5 @@
-import asyncio
 import logging
-from typing import Optional
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -9,7 +8,7 @@ except ImportError:
     Page = None
 
 class SmartPage:
-    def __init__(self, page: Optional[Page] = None):
+    def __init__(self, page: Page | None = None):
         self.page = page
 
     async def wait_for_stable_visual(self, timeout_ms: int = 10000) -> bool:
