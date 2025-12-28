@@ -1,6 +1,6 @@
 """GLM-4.6V specific models for vision and tool calling."""
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -25,7 +25,7 @@ class GLMImageContent(BaseModel):
     image_url: GLMImageURL
 
 
-GLMContent = Union[str, list[GLMTextContent | GLMImageContent]]
+GLMContent = str | list[GLMTextContent | GLMImageContent]
 
 
 class GLMMessage(BaseModel):
