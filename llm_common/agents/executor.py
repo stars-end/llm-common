@@ -172,35 +172,52 @@ class AgenticExecutor:
                     task_id=task.id, sub_task_id=0, success=True, result="No tools called"
                 )
 
-            # Notify callbacks
-            if callbacks and callbacks.on_tool_calls_start:
-                tool_infos = [ToolCallInfo(name=tc.tool, args=tc.args) for tc in tool_calls]
-                callbacks.on_tool_calls_start(tool_infos)
-
-            # 2. Execute Tools Parallel
-            results = await asyncio.gather(
-                *[self._execute_tool(tc, task.id, query_id) for tc in tool_calls],
-                return_exceptions=True,
-            )
-
-            # Notify callbacks of completion
-            for tc, result in zip(tool_calls, results):
-                if callbacks and callbacks.on_tool_call_complete:
-                    is_error = isinstance(result, Exception)
-                    callbacks.on_tool_call_complete(
-                        ToolCallResult(
-                            name=tc.tool,
-                            args=tc.args,
-                            summary=str(result)[:200] if not is_error else str(result),
-                            success=not is_error,
-                        )
-                    )
+            # 2. Execute Tools
+            results = await self.execute_tool_calls(tool_calls, task.id, query_id, callbacks)
 
             return SubTaskResult(task_id=task.id, sub_task_id=0, success=True, result=results)
 
         except Exception as e:
             logger.error(f"Task {task.id} failed: {e}")
             return SubTaskResult(task_id=task.id, sub_task_id=0, success=False, error=str(e))
+
+    async def execute_tool_calls(
+        self,
+        tool_calls: list[ToolCall],
+        task_id: int,
+        query_id: str,
+        callbacks: AgentCallbacks | None = None,
+    ) -> list[Any]:
+        """
+        Executes a list of tool calls in parallel and handles context saving.
+        """
+        if not tool_calls:
+            return []
+
+        # Notify callbacks
+        if callbacks and callbacks.on_tool_calls_start:
+            tool_infos = [ToolCallInfo(name=tc.tool, args=tc.args) for tc in tool_calls]
+            callbacks.on_tool_calls_start(tool_infos)
+
+        # Execute Tools Parallel
+        results = await asyncio.gather(
+            *[self._execute_tool(tc, task_id, query_id) for tc in tool_calls],
+            return_exceptions=True,
+        )
+
+        # Notify callbacks of completion
+        for tc, result in zip(tool_calls, results):
+            if callbacks and callbacks.on_tool_call_complete:
+                is_error = isinstance(result, Exception)
+                callbacks.on_tool_call_complete(
+                    ToolCallResult(
+                        name=tc.tool,
+                        args=tc.args,
+                        summary=str(result)[:200] if not is_error else str(result),
+                        success=not is_error,
+                    )
+                )
+        return results
 
     async def _resolve_tools(self, task: PlannedTask) -> list[ToolCall]:
         selector = ToolSelector(self.client)
@@ -209,7 +226,12 @@ class AgenticExecutor:
     async def _execute_tool(self, call: ToolCall, task_id: int, query_id: str) -> Any:
         try:
             logger.info(f"Calling tool: {call.tool}")
-            result = await self.registry.execute(call.tool, call.args)
+            # Support both registry.execute(tool_name, args_dict) and registry.execute(tool_name, **kwargs).
+            # Different call sites in llm-common and downstream repos use different conventions.
+            try:
+                result = await self.registry.execute(call.tool, call.args)
+            except TypeError:
+                result = await self.registry.execute(call.tool, **call.args)
 
             # Save Context
             await self.context_manager.save_context(
