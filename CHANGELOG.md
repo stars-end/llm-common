@@ -5,6 +5,19 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2025-12-29
+
+### Added
+
+- Dexter-style `MessageHistory` helper for per-turn summarization and structured relevant-turn selection.
+- `RelevantTurns` schema for model responses used by relevance selection.
+
+## [0.7.4] - 2025-12-29
+
+### Changed
+
+- Version/tag alignment release for downstream app pinning.
+
 ## [0.7.3] - 2025-12-27
 
 ### Added
