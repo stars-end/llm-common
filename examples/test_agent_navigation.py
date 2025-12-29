@@ -21,8 +21,8 @@ from pathlib import Path
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from llm_common import GLMClient, GLMConfig
-from llm_common.agents import Story, StoryStep, UISmokeAgent
+from llm_common import GLMClient, GLMConfig  # noqa: E402
+from llm_common.agents import Story, StoryStep, UISmokeAgent  # noqa: E402
 
 logging.basicConfig(
     level=logging.DEBUG,  # Enable debug for detailed logs
@@ -82,7 +82,7 @@ class SimpleBrowserAdapter:
                 try:
                     await self.page.click(target, timeout=5000)
                     return
-                except:
+                except Exception:
                     pass
 
             # Try as text

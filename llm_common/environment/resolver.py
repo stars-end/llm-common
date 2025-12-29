@@ -1,9 +1,9 @@
-import os
 import enum
 import logging
-from typing import Optional, Dict
+import os
 
 logger = logging.getLogger(__name__)
+
 
 class RuntimeContext(enum.Enum):
     LOCAL = "local"
@@ -13,8 +13,9 @@ class RuntimeContext(enum.Enum):
     GITHUB_CI = "github_ci"
     JULES_SANDBOX = "jules_sandbox"
 
+
 class ServiceRegistry:
-    def __init__(self, overrides: Optional[Dict[str, str]] = None):
+    def __init__(self, overrides: dict[str, str] | None = None):
         self._overrides = overrides or {}
         self._context = self._detect_context()
 
