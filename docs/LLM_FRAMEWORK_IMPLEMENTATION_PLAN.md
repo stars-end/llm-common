@@ -985,7 +985,7 @@ alert = await tracker.check_budget(
 **File**: `backend/requirements.txt`
 ```
 # Add after existing dependencies
-llm-common @ git+https://github.com/yourusername/llm-common.git@v1.0.0
+llm-common @ git+https://github.com/stars-end/llm-common.git@v1.0.0
 # OR if local development:
 # -e ../llm-common
 ```
@@ -1258,7 +1258,7 @@ ENABLE_SEARCH_CACHING=true
 ```toml
 [tool.poetry.dependencies]
 # ... existing dependencies ...
-llm-common = {git = "https://github.com/yourusername/llm-common.git", tag = "v1.0.0"}
+llm-common = {git = "https://github.com/stars-end/llm-common.git", tag = "v1.0.0"}
 # OR for local development:
 # llm-common = {path = "../llm-common", develop = true}
 ```
@@ -1408,10 +1408,10 @@ def get_llm_client():
 ```bash
 # In each repo
 cd ~/affordabot
-git submodule add https://github.com/yourusername/llm-common.git lib/llm-common
+git submodule add https://github.com/stars-end/llm-common.git lib/llm-common
 
 cd ~/prime-radiant-ai
-git submodule add https://github.com/yourusername/llm-common.git lib/llm-common
+git submodule add https://github.com/stars-end/llm-common.git lib/llm-common
 ```
 
 **Installation**:
@@ -1907,8 +1907,8 @@ workspace/
 **Setup**:
 ```bash
 # Clone repos with submodules
-git clone --recursive https://github.com/yourusername/affordabot.git
-git clone --recursive https://github.com/yourusername/prime-radiant-ai.git
+git clone --recursive https://github.com/stars-end/affordabot.git
+git clone --recursive https://github.com/stars-end/prime-radiant-ai.git
 
 # Install llm-common in development mode
 cd affordabot
