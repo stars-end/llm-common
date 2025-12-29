@@ -1,8 +1,9 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel
 
 from llm_common.agents.callbacks import AgentCallbacks, ToolCallInfo, ToolCallResult
 from llm_common.agents.tool_context import ToolContextManager
@@ -14,8 +15,7 @@ from .schemas import ExecutionPlan, PlannedTask, SubTaskResult, ToolCall
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class StreamEvent:
+class StreamEvent(BaseModel):
     """Event yielded during streaming execution."""
     type: str  # "thinking", "tool_call", "tool_result", "text", "sources", "error"
     data: Any

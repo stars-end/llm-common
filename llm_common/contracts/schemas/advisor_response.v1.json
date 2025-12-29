@@ -1,0 +1,25 @@
+{
+  "$id": "https://github.com/stars-end/llm-common/contracts/advisor_response.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Response from the advisor.",
+  "properties": {
+    "content": {
+      "description": "The advisor's response.",
+      "title": "Content",
+      "type": "string"
+    },
+    "sources": {
+      "description": "List of sources used to generate the response.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "content"
+  ],
+  "title": "AdvisorResponse",
+  "type": "object"
+}

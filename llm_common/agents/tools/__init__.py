@@ -12,6 +12,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from llm_common.agents.provenance import EvidenceEnvelope
 
 
@@ -47,33 +49,19 @@ class ToolMetadata:
         return {"type": "object", "properties": properties, "required": required}
 
 
-@dataclass
-class ToolResult:
-    """Wraps the result of a tool execution.
+class ToolResult(BaseModel):
+    """Wraps the result of a tool execution."""
 
-    Attributes:
-        success: Whether the tool execution succeeded
-        data: The result data from the tool
-        source_urls: URLs that sourced this data (for provenance/citations)
-        evidence: Optional evidence envelopes (Dexter-style provenance)
-        error: Error message if execution failed
-    """
-
-    success: bool
-    data: Any = None
-    source_urls: list[str] = field(default_factory=list)
-    evidence: list[EvidenceEnvelope] = field(default_factory=list)
-    error: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "success": self.success,
-            "data": self.data,
-            "source_urls": self.source_urls,
-            "evidence": [e.model_dump() for e in self.evidence],
-            "error": self.error,
-        }
+    schema_version: float = Field(default=1.0, description="Schema version for this result.")
+    success: bool = Field(..., description="Whether the tool execution succeeded.")
+    data: Any = Field(default=None, description="The result data from the tool.")
+    source_urls: list[str] = Field(
+        default_factory=list, description="URLs that sourced this data (for provenance/citations)."
+    )
+    evidence: list[EvidenceEnvelope] = Field(
+        default_factory=list, description="Optional evidence envelopes (Dexter-style provenance)."
+    )
+    error: str | None = Field(default=None, description="Error message if execution failed.")
 
 
 class BaseTool(ABC):

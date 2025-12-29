@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "llm-common"
-version = "0.7.3"
+version = "0.7.2"
 description = "Shared LLM framework for affordabot and prime-radiant-ai"
 authors = ["Feng Ning <feng@starsend.ai>"]
 readme = "README.md"

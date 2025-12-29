@@ -27,15 +27,28 @@ def _parse_int(value: str | None, default: int) -> int:
 
 
 class ToolSelectionConfig(BaseModel):
-    model: str = Field(default="glm-4.5-air")
-    fallback_model: str | None = Field(default=None)
-    max_calls: int = Field(default=5, ge=1, le=20)
-    timeout_s: int = Field(default=30, ge=1, le=120)
-    temperature: float = Field(default=0.0, ge=0.0, le=1.0)
-    fail_closed: bool = Field(default=True)
+    """Configuration for the ToolSelector."""
+
+    model: str = Field(default="glm-4.5-air", description="Primary model for tool selection.")
+    fallback_model: str | None = Field(
+        default=None, description="Optional fallback model if the primary model fails."
+    )
+    max_calls: int = Field(
+        default=5, ge=1, le=20, description="Maximum number of tool calls to return."
+    )
+    timeout_s: int = Field(default=30, ge=1, le=120, description="Timeout for the LLM call.")
+    temperature: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Sampling temperature for the LLM call."
+    )
+    fail_closed: bool = Field(
+        default=True,
+        description="If True, return an empty list on failure. Per spec, this is currently "
+        "always treated as True.",
+    )
 
     @classmethod
     def from_env(cls) -> "ToolSelectionConfig":
+        """Loads configuration from environment variables."""
         return cls(
             model=os.getenv("LLM_COMMON_TOOL_SELECTION_MODEL", "glm-4.5-air"),
             fallback_model=os.getenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL"),
@@ -52,7 +65,16 @@ class _ToolCallList(BaseModel):
 
 
 class ToolSelector:
+    """Selects tools to execute based on a task, query, and available context."""
+
     def __init__(self, client: LLMClient, config: ToolSelectionConfig | None = None):
+        """
+        Initializes the ToolSelector.
+
+        Args:
+            client: An LLMClient instance for making API calls.
+            config: Configuration for tool selection. If None, loads from environment.
+        """
         self._client = client
         self._config = config or ToolSelectionConfig.from_env()
 
@@ -64,6 +86,18 @@ class ToolSelector:
         query: str | None = None,
         context: dict | None = None,
     ) -> list[ToolCall]:
+        """
+        Selects a set of tool calls to satisfy the given task.
+
+        Args:
+            task: The overall task to be accomplished.
+            tool_registry: A registry providing the schema of available tools.
+            query: The user's query, if any.
+            context: Additional context from previous steps, if any.
+
+        Returns:
+            A list of ToolCall objects to be executed.
+        """
         tools_schema = tool_registry.get_tools_schema()
         subtasks_str = "\n".join([f"- {st.description}" for st in task.sub_tasks])
 

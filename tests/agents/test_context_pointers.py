@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,7 +13,7 @@ from llm_common.agents.context_pointers import (
 from llm_common.core.models import LLMResponse, LLMUsage
 
 
-def test_pointer_id_is_deterministic():
+def test_pointer_id_is_deterministic() -> None:
     args_a = {"ticker": "AAPL", "limit": 5}
     args_b = {"limit": 5, "ticker": "AAPL"}  # different ordering
     pid1 = compute_pointer_id(tool_name="tool", args=args_a, query_id="q", task_id="t")
@@ -20,7 +21,7 @@ def test_pointer_id_is_deterministic():
     assert pid1 == pid2
 
 
-def test_summary_is_deterministic_and_includes_key_args():
+def test_summary_is_deterministic_and_includes_key_args() -> None:
     summary = deterministic_summary(tool_name="web_search", args={"query": "foo", "count": 3})
     assert "web_search" in summary
     assert "query=foo" in summary
@@ -28,7 +29,7 @@ def test_summary_is_deterministic_and_includes_key_args():
 
 
 @pytest.mark.asyncio
-async def test_store_roundtrip(tmp_path):
+async def test_store_roundtrip(tmp_path: Path) -> None:
     store = FileContextPointerStore(base_dir=tmp_path)
     pointer = await store.save(
         query_id="qid",
@@ -44,7 +45,7 @@ async def test_store_roundtrip(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_selector_parses_pointer_ids_and_caps(tmp_path):
+async def test_selector_parses_pointer_ids_and_caps(tmp_path: Path) -> None:
     store = FileContextPointerStore(base_dir=tmp_path)
     p1 = await store.save(query_id="qid", task_id=None, tool_name="t1", args={}, result={"a": 1})
     p2 = await store.save(query_id="qid", task_id=None, tool_name="t2", args={}, result={"a": 2})
@@ -66,7 +67,7 @@ async def test_selector_parses_pointer_ids_and_caps(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_selector_fail_closed_on_invalid_output():
+async def test_selector_fail_closed_on_invalid_output() -> None:
     p = ContextPointer(
         pointer_id="deadbeefcafe",
         query_id="qid",
@@ -90,3 +91,17 @@ async def test_selector_fail_closed_on_invalid_output():
     selector = ContextRelevanceSelector(client=client, fail_closed=True)
     selected = await selector.select(query="q", pointers=[p])
     assert selected == []
+
+
+def test_store_list_handles_missing_query_dir(tmp_path: Path) -> None:
+    store = FileContextPointerStore(base_dir=tmp_path)
+    assert store.list(query_id="non-existent-qid") == []
+
+
+@pytest.mark.asyncio
+async def test_selector_handles_empty_pointers_list() -> None:
+    client = AsyncMock()
+    selector = ContextRelevanceSelector(client=client)
+    selected = await selector.select(query="q", pointers=[])
+    assert selected == []
+    client.chat_completion.assert_not_called()
