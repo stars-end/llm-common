@@ -32,7 +32,7 @@ In your `pyproject.toml`:
 
 ```toml
 [tool.poetry.dependencies]
-llm-common = {git = "ssh://git@github.com/stars-end/llm-common.git", tag = "v0.7.3"}
+llm-common = {git = "ssh://git@github.com/stars-end/llm-common.git", tag = "v0.7.4"}
 ```
 
 ### Pip
@@ -40,10 +40,10 @@ llm-common = {git = "ssh://git@github.com/stars-end/llm-common.git", tag = "v0.7
 In your `requirements.txt`:
 
 ```
-git+ssh://git@github.com/stars-end/llm-common.git@v0.7.3#egg=llm-common
+git+ssh://git@github.com/stars-end/llm-common.git@v0.7.4#egg=llm-common
 ```
 
-Replace `v0.7.3` with the desired version tag.
+Replace `v0.7.4` with the desired version tag.
 
 ## Quick Start
 
