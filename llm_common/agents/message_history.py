@@ -1,7 +1,11 @@
 import hashlib
+import json
 from dataclasses import dataclass
 
+from pydantic import ValidationError
+
 from llm_common import LLMClient, LLMMessage, MessageRole
+from llm_common.agents.schemas import RelevantTurns
 
 
 @dataclass
@@ -85,26 +89,30 @@ Here is a list of previous conversation turns:
 Current user query: "{current_query}"
 
 Which of the previous turns are relevant to the current query?
-Provide a comma-separated list of numbers (e.g., "1, 3").
-If none are relevant, respond with "none".
-Relevant turns:
+Respond with a JSON object containing a single key "relevant_turns" with a list of relevant turn numbers.
+Example: {{"relevant_turns": [1, 3]}}
+If no turns are relevant, return an empty list: {{"relevant_turns": []}}
 """
         response = await self._llm_client.chat_completion(
             messages=[LLMMessage(role=MessageRole.USER, content=selection_prompt)],
-            max_tokens=50,
+            max_tokens=150,
             temperature=0.0,
         )
 
-        content = response.content.strip().lower()
-        if content == "none" or not content:
-            self._relevance_cache[query_hash] = []
-            return []
-
+        content = response.content.strip()
+        relevant_messages = []
         try:
-            indices = [int(i.strip()) - 1 for i in content.split(",") if i.strip().isdigit()]
-            relevant_messages = [self._messages[i] for i in indices if 0 <= i < len(self._messages)]
-        except (ValueError, IndexError):
-            # If parsing fails, be conservative and return all messages
+            # The model may wrap the JSON in a markdown code block.
+            if content.startswith("```json"):
+                content = content.split("```json")[1].split("```")[0].strip()
+
+            parsed = RelevantTurns.model_validate_json(content)
+            indices = [i - 1 for i in parsed.relevant_turns]
+            relevant_messages = [
+                self._messages[i] for i in indices if 0 <= i < len(self._messages)
+            ]
+        except (ValidationError, json.JSONDecodeError, IndexError):
+            # If parsing fails, be conservative and return all messages.
             relevant_messages = self._messages
 
         self._relevance_cache[query_hash] = relevant_messages

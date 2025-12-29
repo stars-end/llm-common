@@ -84,6 +84,14 @@ class StoryResult(BaseModel):
     errors: list[AgentError] = Field(default_factory=list)
 
 
+class RelevantTurns(BaseModel):
+    """A list of relevant conversation turns."""
+    relevant_turns: list[int] = Field(
+        ...,
+        description="List of numbers corresponding to relevant turns."
+    )
+
+
 class SmokeRunReport(BaseModel):
     """Overall report for a smoke test run."""
 
