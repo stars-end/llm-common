@@ -68,3 +68,72 @@ def test_contract_matches_models_snapshot() -> None:
     assert envelope == expected_envelope
     assert stream_event == expected_stream_event
     assert tool_result == expected_tool_result
+
+
+def test_schemas_are_packaged() -> None:
+    """
+    Verifies that the JSON schema files are included in both the sdist and wheel packages.
+    """
+    import shutil
+    import subprocess
+    import tarfile
+    import zipfile
+
+    # Define paths
+    repo_root = Path(__file__).resolve().parents[1]
+    dist_dir = repo_root / "dist"
+
+    # Clean up any previous build artifacts
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+
+    try:
+        # 1. Build both sdist and wheel packages
+        build_result = subprocess.run(
+            ["poetry", "build"],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        assert build_result.returncode == 0, f"Poetry build failed: {build_result.stderr}"
+
+        # 2. Verify the sdist package (tar.gz)
+        tarballs = list(dist_dir.glob("*.tar.gz"))
+        assert len(tarballs) == 1, f"Expected 1 sdist tarball, but found {len(tarballs)}."
+        sdist_path = tarballs[0]
+        with tarfile.open(sdist_path, "r:gz") as tar:
+            sdist_members = tar.getnames()
+
+        # The top-level dir in the tarball is named after the sdist package
+        sdist_root_dir = sdist_path.name.replace(".tar.gz", "")
+        expected_sdist_schemas = [
+            f"{sdist_root_dir}/llm_common/contracts/schemas/{p.name}"
+            for p in (repo_root / "llm_common" / "contracts" / "schemas").glob("*.json")
+        ]
+        assert len(expected_sdist_schemas) > 0
+
+        missing_sdist = [s for s in expected_sdist_schemas if s not in sdist_members]
+        assert not missing_sdist, f"Schemas missing from sdist: {missing_sdist}"
+
+        # 3. Verify the wheel package (.whl)
+        wheels = list(dist_dir.glob("*.whl"))
+        assert len(wheels) == 1, f"Expected 1 wheel, but found {len(wheels)}."
+        wheel_path = wheels[0]
+        with zipfile.ZipFile(wheel_path, "r") as zf:
+            wheel_members = zf.namelist()
+
+        # In wheels, data files are often in a different location
+        expected_wheel_schemas = [
+            f"llm_common/contracts/schemas/{p.name}"
+            for p in (repo_root / "llm_common" / "contracts" / "schemas").glob("*.json")
+        ]
+        assert len(expected_wheel_schemas) > 0
+
+        missing_wheel = [s for s in expected_wheel_schemas if s not in wheel_members]
+        assert not missing_wheel, f"Schemas missing from wheel: {missing_wheel}"
+
+    finally:
+        # 4. Clean up the dist directory
+        if dist_dir.exists():
+            shutil.rmtree(dist_dir)
