@@ -22,7 +22,7 @@ import pytest
 class TestMessageHistory:
     """Tests for MessageHistory class."""
 
-    def test_message_creation(self):
+    def test_message_creation(self) -> None:
         """Test Message dataclass creation."""
         from llm_common.agents import Message
 
@@ -31,14 +31,14 @@ class TestMessageHistory:
         assert msg.answer == "Hi there"
         assert msg.summary == "Greeting"
 
-    def test_message_default_summary(self):
+    def test_message_default_summary(self) -> None:
         """Test Message with default empty summary."""
         from llm_common.agents import Message
 
         msg = Message(query="Test", answer="Response")
         assert msg.summary == ""
 
-    def test_message_history_init(self):
+    def test_message_history_init(self) -> None:
         """Test MessageHistory initialization."""
         from llm_common.agents import MessageHistory
 
@@ -50,7 +50,7 @@ class TestMessageHistory:
 class TestStreamEvent:
     """Tests for StreamEvent and run_stream."""
 
-    def test_stream_event_creation(self):
+    def test_stream_event_creation(self) -> None:
         """Test StreamEvent dataclass creation."""
         from llm_common.agents import StreamEvent
 
@@ -58,7 +58,7 @@ class TestStreamEvent:
         assert event.type == "thinking"
         assert event.data == "Processing..."
 
-    def test_stream_event_types(self):
+    def test_stream_event_types(self) -> None:
         """Test various StreamEvent types."""
         from llm_common.agents import StreamEvent
 
@@ -71,7 +71,7 @@ class TestStreamEvent:
 class TestAgentCallbacks:
     """Tests for AgentCallbacks protocol."""
 
-    def test_tool_call_info(self):
+    def test_tool_call_info(self) -> None:
         """Test ToolCallInfo dataclass."""
         from llm_common.agents import ToolCallInfo
 
@@ -79,7 +79,7 @@ class TestAgentCallbacks:
         assert info.name == "search"
         assert info.args == {"query": "test"}
 
-    def test_tool_call_result(self):
+    def test_tool_call_result(self) -> None:
         """Test ToolCallResult dataclass."""
         from llm_common.agents import ToolCallResult
 
@@ -87,7 +87,7 @@ class TestAgentCallbacks:
             name="search",
             args={"query": "test"},
             summary="Found 5 results",
-            success=True
+            success=True,
         )
         assert result.name == "search"
         assert result.success is True
@@ -96,7 +96,7 @@ class TestAgentCallbacks:
 class TestProvenance:
     """Tests for Evidence, EvidenceEnvelope, and validate_citations."""
 
-    def test_evidence_creation(self):
+    def test_evidence_creation(self) -> None:
         """Test Evidence dataclass creation."""
         from llm_common.agents import Evidence
 
@@ -111,7 +111,7 @@ class TestProvenance:
         assert evidence.url == "https://example.com"
         assert len(evidence.id) == 36  # UUID length
 
-    def test_evidence_default_values(self):
+    def test_evidence_default_values(self) -> None:
         """Test Evidence with default values."""
         from llm_common.agents import Evidence
 
@@ -120,7 +120,7 @@ class TestProvenance:
         assert evidence.label == ""
         assert evidence.derived_from == []
 
-    def test_envelope_creation(self):
+    def test_envelope_creation(self) -> None:
         """Test EvidenceEnvelope creation."""
         from llm_common.agents import EvidenceEnvelope
 
@@ -128,7 +128,7 @@ class TestProvenance:
         assert envelope.source_tool == "test_tool"
         assert len(envelope.evidence) == 0
 
-    def test_envelope_add_evidence(self):
+    def test_envelope_add_evidence(self) -> None:
         """Test adding evidence to envelope."""
         from llm_common.agents import Evidence, EvidenceEnvelope
 
@@ -139,7 +139,7 @@ class TestProvenance:
         assert len(envelope.evidence) == 1
         assert envelope.evidence[0].label == "Test"
 
-    def test_envelope_get_by_id(self):
+    def test_envelope_get_by_id(self) -> None:
         """Test getting evidence by ID."""
         from llm_common.agents import Evidence, EvidenceEnvelope
 
@@ -151,7 +151,7 @@ class TestProvenance:
         assert found is not None
         assert found.id == evidence.id
 
-    def test_envelope_get_by_id_not_found(self):
+    def test_envelope_get_by_id_not_found(self) -> None:
         """Test getting non-existent evidence by ID."""
         from llm_common.agents import EvidenceEnvelope
 
@@ -159,7 +159,7 @@ class TestProvenance:
         found = envelope.get_by_id("non-existent-id")
         assert found is None
 
-    def test_envelope_get_urls(self):
+    def test_envelope_get_urls(self) -> None:
         """Test getting all URLs from envelope."""
         from llm_common.agents import Evidence, EvidenceEnvelope
 
@@ -172,7 +172,7 @@ class TestProvenance:
         assert len(urls) == 2
         assert "https://example1.com" in urls
 
-    def test_validate_citations_valid(self):
+    def test_validate_citations_valid(self) -> None:
         """Test validate_citations with valid citations."""
         from llm_common.agents import Evidence, EvidenceEnvelope, validate_citations
 
@@ -186,7 +186,7 @@ class TestProvenance:
         assert is_valid is True
         assert len(missing) == 0
 
-    def test_validate_citations_missing(self):
+    def test_validate_citations_missing(self) -> None:
         """Test validate_citations with missing citations."""
         from llm_common.agents import EvidenceEnvelope, validate_citations
 
@@ -199,7 +199,7 @@ class TestProvenance:
         assert is_valid is False
         assert fake_uuid in missing
 
-    def test_format_tool_result(self):
+    def test_format_tool_result(self) -> None:
         """Test format_tool_result helper."""
         from llm_common.agents import format_tool_result
 
@@ -217,7 +217,7 @@ class TestProvenance:
 class TestToolContextManager:
     """Tests for ToolContextManager."""
 
-    def test_hash_query(self):
+    def test_hash_query(self) -> None:
         """Test hash_query returns stable hash."""
         from llm_common.agents import ToolContextManager
 
@@ -233,7 +233,7 @@ class TestToolContextManager:
             assert len(hash1) == 12
 
     @pytest.mark.asyncio
-    async def test_save_context(self):
+    async def test_save_context(self) -> None:
         """Test saving context to disk."""
         from llm_common.agents import ToolContextManager
 
@@ -262,7 +262,7 @@ class TestToolContextManager:
             assert len(meta_files) == 1
             assert len(result_files) == 1
 
-    def test_get_all_sources_empty(self):
+    def test_get_all_sources_empty(self) -> None:
         """Test get_all_sources with no sources."""
         from llm_common.agents import ToolContextManager
 
@@ -272,7 +272,7 @@ class TestToolContextManager:
             assert sources == []
 
     @pytest.mark.asyncio
-    async def test_select_relevant_contexts(self):
+    async def test_select_relevant_contexts(self) -> None:
         from llm_common.agents import ToolContextManager
         from llm_common.agents.context_pointers import compute_pointer_id
         from llm_common.core import LLMClient

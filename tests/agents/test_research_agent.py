@@ -7,7 +7,7 @@ from llm_common.agents.schemas import ExecutionPlan, PlannedTask, SubTask, SubTa
 
 
 @pytest.mark.asyncio
-async def test_research_agent_flow():
+async def test_research_agent_flow() -> None:
     # Mock Clients
     mock_llm = MagicMock()
     mock_search = MagicMock()
@@ -27,7 +27,7 @@ async def test_research_agent_flow():
             )
         ]
     )
-    agent.planner.plan = AsyncMock(return_value=mock_plan)
+    agent.planner.plan = AsyncMock(return_value=mock_plan)  # type: ignore
 
     # Mock Executor Response
     mock_result = SubTaskResult(
@@ -36,7 +36,7 @@ async def test_research_agent_flow():
         success=True,
         result={"tool": "web_search", "output": {"results": []}},
     )
-    agent.executor.execute_plan = AsyncMock(return_value=[mock_result])
+    agent.executor.execute_plan = AsyncMock(return_value=[mock_result])  # type: ignore
 
     # Run
     result = await agent.run("bill-123", "some text", "San Jose")

@@ -16,12 +16,24 @@ class MessageHistory:
     """Manages multi-turn conversation memory."""
 
     def __init__(self, llm_client: LLMClient):
+        """
+        Initializes the MessageHistory.
+
+        Args:
+            llm_client: An LLMClient instance for making API calls.
+        """
         self._messages: list[Message] = []
         self._llm_client = llm_client
         self._relevance_cache: dict[str, list[Message]] = {}
 
-    async def add_message(self, query: str, answer: str):
-        """Adds a message to the history and generates a summary."""
+    async def add_message(self, query: str, answer: str) -> None:
+        """
+        Adds a message to the history and generates a summary.
+
+        Args:
+            query: The user's query.
+            answer: The assistant's answer.
+        """
         summary_prompt = f"""
 Summarize the following conversation turn in one sentence.
 User: {query}
@@ -41,7 +53,15 @@ Summary:
         return hashlib.sha256(query.encode()).hexdigest()
 
     async def select_relevant_messages(self, current_query: str) -> list[Message]:
-        """Selects relevant messages from history based on the current query."""
+        """
+        Selects relevant messages from history based on the current query.
+
+        Args:
+            current_query: The user's current query.
+
+        Returns:
+            A list of relevant Message objects.
+        """
         if not self.has_messages():
             return []
 

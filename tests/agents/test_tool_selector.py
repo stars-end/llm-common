@@ -13,12 +13,12 @@ class _FakeRegistry:
 
 
 @pytest.fixture
-def mock_llm_client():
+def mock_llm_client() -> AsyncMock:
     return AsyncMock()
 
 
 @pytest.mark.asyncio
-async def test_tool_selector_caps_calls(mock_llm_client):
+async def test_tool_selector_caps_calls(mock_llm_client: AsyncMock) -> None:
     mock_llm_client.chat_completion.return_value = LLMResponse(
         id="x",
         model="glm-4.5-air",
@@ -43,7 +43,9 @@ async def test_tool_selector_caps_calls(mock_llm_client):
 
 
 @pytest.mark.asyncio
-async def test_tool_selector_uses_fallback_model_on_network_error(mock_llm_client):
+async def test_tool_selector_uses_fallback_model_on_network_error(
+    mock_llm_client: AsyncMock,
+) -> None:
     mock_llm_client.chat_completion.side_effect = [
         Exception("Network error"),
         LLMResponse(
@@ -72,7 +74,9 @@ async def test_tool_selector_uses_fallback_model_on_network_error(mock_llm_clien
 
 
 @pytest.mark.asyncio
-async def test_tool_selector_uses_fallback_model_on_parse_error(mock_llm_client):
+async def test_tool_selector_uses_fallback_model_on_parse_error(
+    mock_llm_client: AsyncMock,
+) -> None:
     mock_llm_client.chat_completion.side_effect = [
         LLMResponse(
             id="x1",
@@ -108,7 +112,9 @@ async def test_tool_selector_uses_fallback_model_on_parse_error(mock_llm_client)
 
 
 @pytest.mark.asyncio
-async def test_tool_selector_fail_closed_returns_empty_on_total_failure(mock_llm_client):
+async def test_tool_selector_fail_closed_returns_empty_on_total_failure(
+    mock_llm_client: AsyncMock,
+) -> None:
     mock_llm_client.chat_completion.side_effect = [
         Exception("Network error"),
         LLMResponse(
@@ -139,7 +145,65 @@ async def test_tool_selector_fail_closed_returns_empty_on_total_failure(mock_llm
 
 
 @pytest.mark.asyncio
-async def test_tool_selector_fail_open_returns_empty(mock_llm_client):
+async def test_tool_selector_happy_path(mock_llm_client: AsyncMock) -> None:
+    mock_llm_client.chat_completion.return_value = LLMResponse(
+        id="x",
+        model="glm-4.5-air",
+        content='{"calls":[{"tool":"t1","args":{"arg1":"val1"},"reasoning":"r"}]}',
+        finish_reason="stop",
+        usage=LLMUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+        provider="test",
+    )
+
+    selector = ToolSelector(mock_llm_client)
+    calls = await selector.select_tool_calls(
+        task=PlannedTask(id=1, description="d", sub_tasks=[SubTask(id=1, description="s")]),
+        tool_registry=_FakeRegistry(),
+    )
+    assert len(calls) == 1
+    assert calls[0].tool == "t1"
+    assert calls[0].args == {"arg1": "val1"}
+    mock_llm_client.chat_completion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_tool_selector_handles_json_with_markdown(mock_llm_client: AsyncMock) -> None:
+    mock_llm_client.chat_completion.return_value = LLMResponse(
+        id="x",
+        model="glm-4.5-air",
+        content='```json\n{"calls":[{"tool":"t1","args":{},"reasoning":"r"}]}\n```',
+        finish_reason="stop",
+        usage=LLMUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+        provider="test",
+    )
+
+    selector = ToolSelector(mock_llm_client)
+    calls = await selector.select_tool_calls(
+        task=PlannedTask(id=1, description="d", sub_tasks=[SubTask(id=1, description="s")]),
+        tool_registry=_FakeRegistry(),
+    )
+    assert len(calls) == 1
+    assert calls[0].tool == "t1"
+
+
+def test_tool_selection_config_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_COMMON_TOOL_SELECTION_MODEL", "env-model")
+    monkeypatch.setenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL", "env-fallback")
+    monkeypatch.setenv("LLM_COMMON_TOOL_SELECTION_MAX_CALLS", "10")
+    monkeypatch.setenv("LLM_COMMON_TOOL_SELECTION_TIMEOUT_S", "60")
+    monkeypatch.setenv("LLM_COMMON_TOOL_SELECTION_FAIL_CLOSED", "false")
+
+    config = ToolSelectionConfig.from_env()
+
+    assert config.model == "env-model"
+    assert config.fallback_model == "env-fallback"
+    assert config.max_calls == 10
+    assert config.timeout_s == 60
+    assert config.fail_closed is False
+
+
+@pytest.mark.asyncio
+async def test_tool_selector_fail_open_returns_empty(mock_llm_client: AsyncMock) -> None:
     mock_llm_client.chat_completion.side_effect = [
         Exception("Network error"),
         Exception("Another network error"),

@@ -5,8 +5,11 @@ from importlib import resources
 from typing import Any
 
 _CONTRACT_FILES: dict[str, str] = {
+    "advisor_request.v1": "schemas/advisor_request.v1.json",
+    "advisor_response.v1": "schemas/advisor_response.v1.json",
     "evidence.v1": "schemas/evidence.v1.json",
     "evidence_envelope.v1": "schemas/evidence_envelope.v1.json",
+    "stream_event.v1": "schemas/stream_event.v1.json",
     "tool_result.v1": "schemas/tool_result.v1.json",
 }
 
@@ -23,4 +26,3 @@ def get_contract_schema(contract: str) -> dict[str, Any]:
     package = "llm_common.contracts"
     schema_text = resources.files(package).joinpath(rel_path).read_text(encoding="utf-8")
     return json.loads(schema_text)
-

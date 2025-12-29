@@ -7,7 +7,7 @@ from llm_common.core.models import LLMResponse, LLMUsage
 
 
 @pytest.fixture
-def mock_llm_client():
+def mock_llm_client() -> MagicMock:
     """Fixture for a mocked LLMClient."""
     client = MagicMock()
     client.chat_completion = AsyncMock()
@@ -15,21 +15,21 @@ def mock_llm_client():
 
 
 @pytest.fixture
-def message_history(mock_llm_client):
+def message_history(mock_llm_client: MagicMock) -> MessageHistory:
     """Fixture for a MessageHistory instance with a mocked client."""
     return MessageHistory(llm_client=mock_llm_client)
 
 
 @pytest.mark.asyncio
 class TestMessageHistory:
-    async def test_initial_state(self, message_history: MessageHistory):
+    async def test_initial_state(self, message_history: MessageHistory) -> None:
         """Test the initial state of MessageHistory."""
         assert not message_history.has_messages()
         assert message_history._messages == []
 
     async def test_add_message(
         self, message_history: MessageHistory, mock_llm_client: MagicMock
-    ):
+    ) -> None:
         """Test adding a message."""
         mock_llm_client.chat_completion.return_value = LLMResponse(
             id="test_id",
@@ -53,14 +53,14 @@ class TestMessageHistory:
 
     async def test_select_relevant_messages_no_history(
         self, message_history: MessageHistory
-    ):
+    ) -> None:
         """Test selecting messages when history is empty."""
         messages = await message_history.select_relevant_messages("any query")
         assert messages == []
 
     async def test_select_relevant_messages_with_history(
         self, message_history: MessageHistory, mock_llm_client: MagicMock
-    ):
+    ) -> None:
         """Test selecting relevant messages with LLM."""
         # Add some messages
         summaries = ["Summary 1.", "Summary 2.", "Summary 3."]
@@ -94,7 +94,7 @@ class TestMessageHistory:
 
     async def test_select_relevant_messages_caching(
         self, message_history: MessageHistory, mock_llm_client: MagicMock
-    ):
+    ) -> None:
         """Test the caching of relevance selection."""
         message_history._messages.append(
             Message(query="Query 1", answer="Answer 1", summary="Summary 1")
@@ -123,7 +123,25 @@ class TestMessageHistory:
         assert result2 == result1
         mock_llm_client.chat_completion.assert_called_once()  # No new call
 
-    def test_format_for_planning(self, message_history: MessageHistory):
+    async def test_select_relevant_messages_invalid_llm_response(
+        self, message_history: MessageHistory, mock_llm_client: MagicMock
+    ) -> None:
+        """Test that all messages are returned when the LLM response is invalid."""
+        message_history._messages.append(
+            Message(query="Query 1", answer="Answer 1", summary="Summary 1")
+        )
+        mock_llm_client.chat_completion.return_value = LLMResponse(
+            id="test_id",
+            content="invalid response",
+            model="test_model",
+            usage=LLMUsage(prompt_tokens=30, completion_tokens=1, total_tokens=31),
+            finish_reason="stop",
+        )
+
+        relevant_messages = await message_history.select_relevant_messages("some query")
+        assert relevant_messages == message_history._messages
+
+    def test_format_for_planning(self, message_history: MessageHistory) -> None:
         """Test formatting messages for the planning phase."""
         messages = [
             Message("Query 1", "Answer 1", "Summary 1"),
@@ -139,7 +157,7 @@ class TestMessageHistory:
         assert message_history.format_for_planning(messages) == expected_output
         assert message_history.format_for_planning([]) == ""
 
-    def test_format_for_answer(self, message_history: MessageHistory):
+    def test_format_for_answer(self, message_history: MessageHistory) -> None:
         """Test formatting messages for the answer generation phase."""
         messages = [
             Message("Query 1", "Answer 1"),
