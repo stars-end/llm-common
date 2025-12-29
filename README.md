@@ -22,6 +22,29 @@ poetry add llm-common
 pip install llm-common
 ```
 
+## Versioning and Pinning
+
+This project follows [Semantic Versioning](https://semver.org/). We recommend pinning your dependency to a specific Git tag to ensure build stability.
+
+### Poetry
+
+In your `pyproject.toml`:
+
+```toml
+[tool.poetry.dependencies]
+llm-common = {git = "ssh://git@github.com/every-home/llm-common.git", tag = "v0.7.3"}
+```
+
+### Pip
+
+In your `requirements.txt`:
+
+```
+git+ssh://git@github.com/every-home/llm-common.git@v0.7.3#egg=llm-common
+```
+
+Replace `v0.7.3` with the desired version tag.
+
 ## Quick Start
 
 ### Basic LLM Usage

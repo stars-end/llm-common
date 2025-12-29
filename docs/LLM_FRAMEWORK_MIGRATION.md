@@ -88,7 +88,7 @@ git commit -m "feat: Initial llm-common package"
 
 # Optional: Push to GitHub
 gh repo create llm-common --private
-git remote add origin git@github.com:fengning-starsend/llm-common.git
+git remote add origin git@github.com:stars-end/llm-common.git
 git push -u origin master
 ```
 
@@ -98,7 +98,7 @@ git push -u origin master
 cd ~/affordabot
 git submodule add ../llm-common packages/llm-common
 # or if on GitHub:
-# git submodule add git@github.com:fengning-starsend/llm-common.git packages/llm-common
+# git submodule add git@github.com:stars-end/llm-common.git packages/llm-common
 
 # Install in backend
 cd backend

@@ -142,6 +142,8 @@ cd packages/llm-common
 git checkout v0.3.0
 
 # Make changes on feature branch
+git checkout master
+git pull
 git checkout -b feature-bd-svse-123-new-backend
 # ... make changes ...
 git commit -m "feat: add new backend" -m "Feature-Key: bd-svse-123"
@@ -169,6 +171,8 @@ bd update bd-svse-456 --status in_progress
 
 # Fix bug in submodule
 cd packages/llm-common
+git checkout master
+git pull
 git checkout -b feature-bd-svse-456-fix-pgvector-error
 # ... fix bug, add test ...
 git commit -m "fix: handle null embeddings in pgvector" \
