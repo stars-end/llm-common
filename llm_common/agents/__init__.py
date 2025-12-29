@@ -21,6 +21,7 @@ from llm_common.agents.provenance import (
     validate_citations,
 )
 from llm_common.agents.research_agent import ResearchAgent
+from llm_common.agents.runtime import AgentRuntime
 from llm_common.agents.schemas import (
     ExecutionPlan,
     PlannedTask,
@@ -74,6 +75,7 @@ __all__ = [
     "StreamEvent",
     "ToolContextManager",
     "ResearchAgent",
+    "AgentRuntime",
     "UISmokeAgent",
     "BrowserAdapter",
     "load_stories_from_directory",
