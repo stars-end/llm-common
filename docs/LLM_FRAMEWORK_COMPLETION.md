@@ -10,7 +10,7 @@ The Unified LLM Framework has been successfully implemented across both affordab
 ## Pull Requests - MERGED ✅
 
 ### affordabot PR #1
-- **URL**: https://github.com/fengning-starsend/affordabot/pull/1
+- **URL**: https://github.com/stars-end/affordabot/pull/1
 - **Status**: ✅ MERGED
 - **Files**: 16 files, +1,916 insertions, -2 deletions
 - **CI**: Passed ✅
@@ -209,7 +209,7 @@ async def chat(..., timeout: float = 60.0):
 
 ## Links
 
-- affordabot PR: https://github.com/fengning-starsend/affordabot/pull/1
+- affordabot PR: https://github.com/stars-end/affordabot/pull/1
 - prime-radiant-ai PR: https://github.com/stars-end/prime-radiant-ai/pull/261
 - Beads Epic: affordabot-0dz
 
