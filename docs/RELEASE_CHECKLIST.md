@@ -40,11 +40,11 @@ To pin to a tag in your `pyproject.toml`:
 
 ```toml
 [tool.poetry.dependencies]
-llm-common = {git = "ssh://git@github.com/stars-end/llm-common.git", tag = "v0.7.3"}
+llm-common = {git = "ssh://git@github.com/stars-end/llm-common.git", tag = "v0.7.4"}
 ```
 
 Or in a `requirements.txt` file:
 
 ```
-git+ssh://git@github.com/stars-end/llm-common.git@v0.7.3#egg=llm-common
+git+ssh://git@github.com/stars-end/llm-common.git@v0.7.4#egg=llm-common
 ```
