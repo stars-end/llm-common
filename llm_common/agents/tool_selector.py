@@ -54,9 +54,7 @@ class ToolSelectionConfig(BaseModel):
             fallback_model=os.getenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL"),
             max_calls=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_MAX_CALLS"), 5),
             timeout_s=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_TIMEOUT_S"), 30),
-            fail_closed=_parse_bool(
-                os.getenv("LLM_COMMON_TOOL_SELECTION_FAIL_CLOSED"), True
-            ),
+            fail_closed=_parse_bool(os.getenv("LLM_COMMON_TOOL_SELECTION_FAIL_CLOSED"), True),
         )
 
 
@@ -163,4 +161,3 @@ class ToolSelector:
             # Per spec, do not expand scope.
             logger.warning("Tool selection failed, fail_closed=False, returning empty.")
             return []
-

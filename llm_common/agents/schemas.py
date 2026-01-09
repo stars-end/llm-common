@@ -86,9 +86,9 @@ class StoryResult(BaseModel):
 
 class RelevantTurns(BaseModel):
     """A list of relevant conversation turns."""
+
     relevant_turns: list[int] = Field(
-        ...,
-        description="List of numbers corresponding to relevant turns."
+        ..., description="List of numbers corresponding to relevant turns."
     )
 
 

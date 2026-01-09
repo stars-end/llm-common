@@ -182,8 +182,10 @@ class ContextRelevanceSelector:
         self._max_selected = max_selected or int(
             os.getenv("LLM_COMMON_CONTEXT_SELECTION_MAX_POINTERS", "6")
         )
-        self._fail_closed = fail_closed if fail_closed is not None else _env_bool(
-            "LLM_COMMON_CONTEXT_SELECTION_FAIL_CLOSED", True
+        self._fail_closed = (
+            fail_closed
+            if fail_closed is not None
+            else _env_bool("LLM_COMMON_CONTEXT_SELECTION_FAIL_CLOSED", True)
         )
 
     async def select(self, *, query: str, pointers: list[ContextPointer]) -> list[ContextPointer]:
@@ -269,4 +271,3 @@ def format_selected_contexts(
 
     blob = "\n\n".join(chunks)
     return blob[:max_chars] if len(blob) > max_chars else blob
-

@@ -11,6 +11,7 @@ from llm_common.agents.schemas import RelevantTurns
 @dataclass
 class Message:
     """Represents a single turn in a conversation."""
+
     query: str
     answer: str
     summary: str = ""
@@ -108,9 +109,7 @@ If no turns are relevant, return an empty list: {{"relevant_turns": []}}
 
             parsed = RelevantTurns.model_validate_json(content)
             indices = [i - 1 for i in parsed.relevant_turns]
-            relevant_messages = [
-                self._messages[i] for i in indices if 0 <= i < len(self._messages)
-            ]
+            relevant_messages = [self._messages[i] for i in indices if 0 <= i < len(self._messages)]
         except (ValidationError, json.JSONDecodeError, IndexError):
             # If parsing fails, be conservative and return all messages.
             relevant_messages = self._messages

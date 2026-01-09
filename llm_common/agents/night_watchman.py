@@ -4,10 +4,12 @@ from llm_common.environment.resolver import resolver
 
 logger = logging.getLogger(__name__)
 
+
 class NightWatchman:
     """
     Autonomous QA Agent (V3 Framework).
     """
+
     def __init__(self, domain_context: str):
         self.context = domain_context
 

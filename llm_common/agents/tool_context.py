@@ -78,11 +78,13 @@ class ToolContextManager:
             # Extract source info if available in result
             if isinstance(result, dict):
                 if "url" in result:
-                    self._sources[query_id].append({
-                        "tool": tool_name,
-                        "url": result.get("url"),
-                        "title": result.get("title", tool_name),
-                    })
+                    self._sources[query_id].append(
+                        {
+                            "tool": tool_name,
+                            "url": result.get("url"),
+                            "title": result.get("title", tool_name),
+                        }
+                    )
                 elif "sources" in result:
                     self._sources[query_id].extend(result["sources"])
 
@@ -147,9 +149,7 @@ class ToolContextManager:
         if not pointers:
             return ""
 
-        selector = ContextRelevanceSelector(
-            client=client, model=model, max_selected=max_selected
-        )
+        selector = ContextRelevanceSelector(client=client, model=model, max_selected=max_selected)
         selected = await selector.select(query=query, pointers=pointers)
         if not selected:
             selected = pointers[-(max_selected or 6) :]

@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class StreamEvent(BaseModel):
     """Event yielded during streaming execution."""
+
     type: str  # "thinking", "tool_call", "tool_result", "text", "sources", "error"
     data: Any
 
@@ -126,7 +127,9 @@ class AgenticExecutor:
 
                         if callbacks and callbacks.on_tool_call_complete:
                             callbacks.on_tool_call_complete(
-                                ToolCallResult(name=tc.tool, args=tc.args, summary=str(e), success=False)
+                                ToolCallResult(
+                                    name=tc.tool, args=tc.args, summary=str(e), success=False
+                                )
                             )
 
             except Exception as e:

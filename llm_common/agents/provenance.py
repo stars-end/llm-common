@@ -36,6 +36,7 @@ class Evidence(BaseModel):
         internal_ref: Optional internal reference (e.g., account/session ID)
         confidence: Optional confidence score (0.0-1.0)
     """
+
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -64,6 +65,7 @@ class EvidenceEnvelope(BaseModel):
         source_tool: Name of the tool that created this envelope
         source_query: Optional query/input that produced this envelope
     """
+
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -102,7 +104,7 @@ def validate_citations(answer: str, envelope: EvidenceEnvelope) -> tuple[bool, l
         Tuple of (is_valid, missing_ids)
     """
     # Match UUIDs in square brackets
-    uuid_pattern = r'\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]'
+    uuid_pattern = r"\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]"
     cited_ids = re.findall(uuid_pattern, answer, re.IGNORECASE)
 
     missing = [cid for cid in cited_ids if not envelope.get_by_id(cid)]

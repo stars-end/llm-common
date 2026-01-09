@@ -5,6 +5,18 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-09
+
+### Added
+
+- **Dexter RAG V2 Agent Primitives** ([llm-common-sw5](https://github.com/stars-end/prime-radiant-ai/issues/llm-common-sw5))
+  - `IterativeOrchestrator`: Full Dexter-style agent loop with Understand -> Plan -> Execute -> Reflect phases.
+  - `UnderstandPhase`: Intent and entity extraction from user queries.
+  - `ReflectPhase`: Iterative completeness evaluation and self-correction.
+  - `StreamChunk`: Enhanced streaming data model supporting content, reasoning (thinking), and tool calls.
+  - `ZaiClient.stream_completion_enhanced`: Full GLM-4.7 streaming support with `tool_stream=True` and reasoning content.
+
+
 ## [0.7.5] - 2025-12-29
 
 ### Added

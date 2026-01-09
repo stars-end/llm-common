@@ -102,7 +102,9 @@ class AgentRuntime:
         )
 
         if not plan.tasks:
-            return StructuredAnswer(content="I could not create a plan to answer your query.", sources=[])
+            return StructuredAnswer(
+                content="I could not create a plan to answer your query.", sources=[]
+            )
 
         total_calls = 0
         all_results: list[Any] = []
@@ -112,12 +114,14 @@ class AgentRuntime:
                 logger.warning(f"Max tool calls ({self.max_calls}) reached. Halting execution.")
                 break
 
-            tool_calls = await self.tool_selector.select_tool_calls(task=task, tool_registry=self.tool_registry)
+            tool_calls = await self.tool_selector.select_tool_calls(
+                task=task, tool_registry=self.tool_registry
+            )
 
             if not tool_calls:
                 continue
 
-            calls_to_execute = tool_calls[:self.max_calls - total_calls]
+            calls_to_execute = tool_calls[: self.max_calls - total_calls]
 
             if len(calls_to_execute) < len(tool_calls):
                 logger.warning(f"Max calls reached. Truncating tool calls for task {task.id}.")
