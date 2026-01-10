@@ -102,7 +102,7 @@ class ReflectPhase:
             ReflectionResult indicating completion status and next steps
         """
         # Force completion on max iterations
-        if iteration >= self.max_iterations:
+        if iteration >= self.max_iterations - 1:
             logger.info(
                 f"ReflectPhase: Reached max iterations ({self.max_iterations}). "
                 "Forcing completion."

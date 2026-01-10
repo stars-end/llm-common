@@ -99,38 +99,34 @@ class AgenticExecutor:
                     yield StreamEvent(type="text", data="No tools needed for this step.")
                     continue
 
-                # Notify callbacks about tool calls
+                # Notify callbacks and stream tool start events
                 if callbacks and callbacks.on_tool_calls_start:
                     tool_infos = [ToolCallInfo(name=tc.tool, args=tc.args) for tc in tool_calls]
                     callbacks.on_tool_calls_start(tool_infos)
 
-                # Execute each tool and yield results
                 for tc in tool_calls:
                     yield StreamEvent(type="tool_call", data={"tool": tc.tool, "args": tc.args})
 
+                # Execute in parallel and yield results as they arrive
+                tool_tasks = [self._execute_tool(tc, task.id, query_id) for tc in tool_calls]
+                for coro in asyncio.as_completed(tool_tasks):
                     try:
-                        result = await self._execute_tool(tc, task.id, query_id)
+                        result = await coro
                         yield StreamEvent(type="tool_result", data=result)
 
                         if callbacks and callbacks.on_tool_call_complete:
+                            is_error = "error" in result
                             callbacks.on_tool_call_complete(
                                 ToolCallResult(
-                                    name=tc.tool,
-                                    args=tc.args,
-                                    summary=str(result.get("output", ""))[:200],
-                                    success=True,
+                                    name=result.get("tool", "unknown"),
+                                    args=result.get("args", {}),
+                                    summary=str(result.get("output", result.get("error", "")))[:200],
+                                    success=not is_error,
                                 )
                             )
                     except Exception as e:
-                        error_data = {"tool": tc.tool, "error": str(e)}
-                        yield StreamEvent(type="error", data=error_data)
-
-                        if callbacks and callbacks.on_tool_call_complete:
-                            callbacks.on_tool_call_complete(
-                                ToolCallResult(
-                                    name=tc.tool, args=tc.args, summary=str(e), success=False
-                                )
-                            )
+                        logger.error(f"Unexpected error in parallel tool execution: {e}")
+                        yield StreamEvent(type="error", data={"error": str(e)})
 
             except Exception as e:
                 logger.error(f"Task {task.id} failed: {e}")

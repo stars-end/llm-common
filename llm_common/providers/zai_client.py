@@ -171,93 +171,26 @@ class ZaiClient(LLMClient):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_stream: bool = False,
         **kwargs: Any,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | StreamChunk]:
         """Stream chat completion response from z.ai.
 
-        Args:
-            messages: Conversation messages
-            model: Model to use (defaults to config.default_model)
-            temperature: Sampling temperature (defaults to config.temperature)
-            max_tokens: Maximum tokens to generate (defaults to config.max_tokens)
-            **kwargs: Additional z.ai-specific parameters
-
-        Yields:
-            Response chunks as they arrive
-
-        Raises:
-            LLMError: If request fails
-            BudgetExceededError: If budget limit reached
-        """
-        model = model or self.config.default_model
-        temperature = temperature if temperature is not None else self.config.temperature
-        max_tokens = max_tokens or self.config.max_tokens
-
-        # Estimate cost and check budget
-        estimated_cost = self._estimate_cost(model, len(str(messages)), max_tokens)
-        self.check_budget(estimated_cost)
-
-        try:
-            stream = await self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": (msg.role if hasattr(msg, "role") else msg["role"]),
-                        "content": (msg.content if hasattr(msg, "content") else msg["content"]),
-                    }
-                    for msg in messages
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
-                **kwargs,
-            )
-
-            async for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-
-        except httpx.TimeoutException as e:
-            raise TimeoutError(
-                f"Stream timed out after {self.config.timeout}s: {e}", provider="zai"
-            )
-        except Exception as e:
-            if "rate_limit" in str(e).lower():
-                raise RateLimitError(str(e), provider="zai")
-            raise LLMError(f"Stream completion failed: {e}", provider="zai")
-
-    async def stream_completion_enhanced(
-        self,
-        messages: list[LLMMessage],
-        model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        tools: list[dict[str, Any]] | None = None,
-        tool_stream: bool = True,
-        **kwargs: Any,
-    ) -> AsyncIterator[StreamChunk]:
-        """Stream chat completion with enhanced GLM-4.7 support.
-
-        This method yields StreamChunk objects that include:
-        - content: Regular response text
-        - reasoning_content: GLM-4.7 "thinking" output
-        - tool_calls: Streaming tool call information
+        Supports both simple string streaming and enhanced GLM-4.7 streaming
+        (reasoning_content, tool_calls).
 
         Args:
             messages: Conversation messages
             model: Model to use (defaults to config.default_model)
             temperature: Sampling temperature
             max_tokens: Maximum tokens to generate
-            tools: Tool definitions for function calling
-            tool_stream: Enable streaming tool call parameters (GLM-4.7)
+            tools: Optional tool definitions for function calling
+            tool_stream: If True, yield StreamChunk objects (for GLM-4.7)
             **kwargs: Additional z.ai-specific parameters
 
         Yields:
-            StreamChunk objects with content, reasoning, and tool calls
-
-        Raises:
-            LLMError: If request fails
+            str (if tool_stream=False) or StreamChunk (if tool_stream=True)
         """
         model = model or self.config.default_model
         temperature = temperature if temperature is not None else self.config.temperature
@@ -271,7 +204,7 @@ class ZaiClient(LLMClient):
         extra_body = kwargs.pop("extra_body", {})
         if "glm-4.7" in model:
             extra_body["thinking"] = {"type": "enabled"}
-            if tool_stream and tools:
+            if (tool_stream or tools) and tools:
                 extra_body["tool_stream"] = True
 
         try:
@@ -307,7 +240,13 @@ class ZaiClient(LLMClient):
                 delta = chunk.choices[0].delta
                 finish_reason = chunk.choices[0].finish_reason
 
-                # Build StreamChunk
+                if not tool_stream and not tools:
+                    # Backward compatible mode: yield strings
+                    if hasattr(delta, "content") and delta.content:
+                        yield delta.content
+                    continue
+
+                # Enhanced mode: yield StreamChunk
                 stream_chunk = StreamChunk(finish_reason=finish_reason)
 
                 # Content
@@ -352,7 +291,7 @@ class ZaiClient(LLMClient):
         except Exception as e:
             if "rate_limit" in str(e).lower():
                 raise RateLimitError(str(e), provider="zai")
-            raise LLMError(f"Enhanced stream completion failed: {e}", provider="zai")
+            raise LLMError(f"Stream completion failed: {e}", provider="zai")
 
     async def validate_api_key(self) -> bool:
         """Validate z.ai API key by making a minimal request.

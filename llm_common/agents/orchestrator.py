@@ -165,11 +165,18 @@ class IterativeOrchestrator:
             all_results.extend(results)
 
             # Collect evidence from results
-            for result in results:
-                if hasattr(result, "evidence") and result.evidence:
-                    for ev in result.evidence:
-                        if hasattr(evidence_envelope, "merge"):
-                            evidence_envelope.merge(ev)
+            for sub_res in results:
+                if isinstance(sub_res.result, list):
+                    for tool_exec in sub_res.result:
+                        if isinstance(tool_exec, dict) and "output" in tool_exec:
+                            output = tool_exec["output"]
+                            if hasattr(output, "evidence") and output.evidence:
+                                for ev in output.evidence:
+                                    evidence_envelope.merge(ev)
+                # Fallback for direct SubTaskResult.result if it's a ToolResult
+                elif hasattr(sub_res.result, "evidence") and sub_res.result.evidence:
+                    for ev in sub_res.result.evidence:
+                        evidence_envelope.merge(ev)
 
             # Format completed work for reflection
             completed_work = self._format_completed_work(completed_plans, all_results)
@@ -266,7 +273,7 @@ class IterativeOrchestrator:
         # 2. ITERATE
         completed_plans = []
         all_results = []
-        evidence_envelope = EvidenceEnvelope(source_tool="iterative_orchestrator")  # noqa: F841
+        evidence_envelope = EvidenceEnvelope(source_tool="iterative_orchestrator")
 
         for iteration in range(self.max_iterations):
             yield StreamEvent(
@@ -295,12 +302,19 @@ class IterativeOrchestrator:
                 context=plan_context,
                 available_tools=tool_descriptions,
             )
+            yield StreamEvent(type="plan", data=plan.model_dump())
 
             # Stream executor events
             async for event in self.executor.run_stream(plan, query_id):
                 yield event
                 if event.type == "tool_result" and event.data:
                     all_results.append(event.data)
+                    # Extract evidence for the envelope
+                    if isinstance(event.data, dict) and "output" in event.data:
+                        output = event.data["output"]
+                        if hasattr(output, "evidence") and output.evidence:
+                            for ev in output.evidence:
+                                evidence_envelope.merge(ev)
 
             completed_work = self._format_completed_work(completed_plans, all_results)
 
@@ -348,6 +362,7 @@ class IterativeOrchestrator:
             type="sources",
             data=answer.sources if hasattr(answer, "sources") else [],
         )
+        yield StreamEvent(type="evidence", data=evidence_envelope.model_dump())
 
     def _format_completed_work(self, plans: list, results: list) -> str:
         """Format completed work for reflection.

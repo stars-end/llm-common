@@ -5,7 +5,7 @@ All notable changes to llm-common will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] - 2026-01-09
+## [0.8.0] - 2026-01-10
 
 ### Added
 
@@ -14,7 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `UnderstandPhase`: Intent and entity extraction from user queries.
   - `ReflectPhase`: Iterative completeness evaluation and self-correction.
   - `StreamChunk`: Enhanced streaming data model supporting content, reasoning (thinking), and tool calls.
-  - `ZaiClient.stream_completion_enhanced`: Full GLM-4.7 streaming support with `tool_stream=True` and reasoning content.
+  - `ZaiClient.stream_completion`: Consolidated streaming support with `tool_stream=True` and GLM-4.7 reasoning content.
+
+### Changed
+
+- `AgenticExecutor.run_stream`: Now runs tool calls in parallel using `asyncio.as_completed`.
+- `IterativeOrchestrator`: Improved evidence collection from `SubTaskResult` and `ToolResult`.
+- `ReflectPhase`: Fixed off-by-one error in max iterations forcing logic.
 
 
 ## [0.7.5] - 2025-12-29
