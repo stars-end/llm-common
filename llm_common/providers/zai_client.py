@@ -26,6 +26,7 @@ from llm_common.core import (
     RateLimitError,
     TimeoutError,
 )
+from llm_common.glm_models import GLMModels
 
 
 @dataclass
@@ -44,13 +45,14 @@ class StreamChunk:
 class ZaiClient(LLMClient):
     """z.ai LLM client with OpenAI compatibility."""
 
-    BASE_URL = "https://api.z.ai/api/coding/paas/v4"
+    BASE_URL = GLMModels.CODING_ENDPOINT
+    DEFAULT_MODEL = GLMModels.FLAGSHIP
 
     # Pricing per 1M tokens (as of 2025-01)
     PRICING = {
-        # NOTE: Keep keys unique; Python dict literals overwrite duplicates.
-        # For now, treat glm-4.7 as free-tier in cost estimation.
-        "glm-4.7": {"input": 0.0, "output": 0.0},
+        GLMModels.FLAGSHIP: {"input": 0.0, "output": 0.0},
+        GLMModels.VISION: {"input": 0.0, "output": 0.0},
+        GLMModels.FLASH: {"input": 0.0, "output": 0.0},
     }
 
     def __init__(self, config: LLMConfig) -> None:
