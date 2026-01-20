@@ -3,7 +3,7 @@ import pytest
 from llm_common.agents.schemas import AgentStory
 
 
-def test_agent_story_allows_string_steps():
+def test_agent_story_allows_string_steps() -> None:
     story = AgentStory(
         id="plaid_link",
         persona="investor_basic",
@@ -18,7 +18,7 @@ def test_agent_story_allows_string_steps():
     assert story.steps[0]["validation_criteria"] == []
 
 
-def test_agent_story_allows_mixed_steps():
+def test_agent_story_allows_mixed_steps() -> None:
     story = AgentStory(
         id="mixed",
         persona="investor_basic",
@@ -32,7 +32,6 @@ def test_agent_story_allows_mixed_steps():
     assert story.steps[1]["id"] == "step-reconnect"
 
 
-def test_agent_story_rejects_invalid_steps():
+def test_agent_story_rejects_invalid_steps() -> None:
     with pytest.raises(TypeError):
         AgentStory(id="bad", persona="p", steps="not-a-list")  # type: ignore[arg-type]
-

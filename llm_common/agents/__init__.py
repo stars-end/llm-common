@@ -59,7 +59,7 @@ from llm_common.agents.tools import (
     ToolResult,
 )
 from llm_common.agents.ui_smoke_agent import BrowserAdapter, UISmokeAgent
-from llm_common.agents.utils import load_story, load_stories_from_directory
+from llm_common.agents.utils import load_stories_from_directory, load_story
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient, StreamChunk
 
 __all__ = [
