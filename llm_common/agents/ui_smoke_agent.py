@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Protocol
@@ -9,6 +10,92 @@ from llm_common.agents.schemas import AgentError, AgentStory, StepResult, StoryR
 from llm_common.core import LLMClient, LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_selector(selector: str) -> str:
+    """Sanitize and validate a CSS selector.
+
+    Fixes common issues from LLM-generated selectors:
+    - Removes invalid '||' (not valid CSS)
+    - Strips quotes that might cause parsing issues
+    - Normalizes whitespace
+
+    Args:
+        selector: Raw selector string from LLM
+
+    Returns:
+        Sanitized selector
+
+    Raises:
+        ValueError: If selector contains invalid patterns that can't be fixed
+    """
+    if not selector:
+        raise ValueError("Empty selector")
+
+    # Strip and normalize whitespace
+    selector = selector.strip()
+
+    # Check for empty after stripping
+    if not selector:
+        raise ValueError("Empty selector")
+
+    # Reject selectors with invalid || operator (common LLM mistake)
+    if "||" in selector:
+        # Try to extract a valid selector before the ||
+        parts = selector.split("||")
+        valid_part = parts[0].strip()
+        if valid_part:
+            logger.warning(f"Selector contained '||', using first part: {valid_part}")
+            return _sanitize_selector(valid_part)
+        raise ValueError(f"Invalid selector contains '||': {selector}")
+
+    # Remove surrounding quotes if present
+    if (selector.startswith('"') and selector.endswith('"')) or (
+        selector.startswith("'") and selector.endswith("'")
+    ):
+        selector = selector[1:-1]
+
+    return selector
+
+
+def _get_input_fallback_selectors(selector: str) -> list[str]:
+    """Generate fallback selectors for input fields.
+
+    If selector targets input[placeholder=...], also try textarea[placeholder=...]
+    and generic [placeholder=...].
+
+    Args:
+        selector: Original selector
+
+    Returns:
+        List of selectors to try in order
+    """
+    selectors = [selector]
+
+    # If selector uses input[placeholder=...], add fallbacks
+    placeholder_match = re.search(
+        r'input\[placeholder[=~\^*$|]*["\']([^"\']+)["\']', selector, re.IGNORECASE
+    )
+    if placeholder_match:
+        placeholder_value = placeholder_match.group(1)
+        # Add textarea variant
+        selectors.append(f'textarea[placeholder="{placeholder_value}"]')
+        # Add generic variant (matches any element with placeholder)
+        selectors.append(f'[placeholder="{placeholder_value}"]')
+        # Add data-testid variant if placeholder contains recognizable pattern
+        if "ask" in placeholder_value.lower() or "question" in placeholder_value.lower():
+            selectors.append('[data-testid="advisor-chat-input"]')
+
+    # If selector targets textarea, add input fallback
+    textarea_match = re.search(
+        r'textarea\[placeholder[=~\^*$|]*["\']([^"\']+)["\']', selector, re.IGNORECASE
+    )
+    if textarea_match:
+        placeholder_value = textarea_match.group(1)
+        selectors.append(f'input[placeholder="{placeholder_value}"]')
+        selectors.append(f'[placeholder="{placeholder_value}"]')
+
+    return selectors
 
 
 class BrowserAdapter(Protocol):
@@ -375,11 +462,61 @@ class UISmokeAgent:
                     if name == "navigate":
                         await self.browser.navigate(args.get("path", "/"))
                     elif name == "click":
-                        await self.browser.click(args.get("target", ""))
+                        target = args.get("target", "")
+                        try:
+                            target = _sanitize_selector(target)
+                        except ValueError as ve:
+                            logger.warning(f"Invalid click target, using raw: {ve}")
+                        await self.browser.click(target)
                     elif name == "type_text":
-                        await self.browser.type_text(args.get("selector", ""), args.get("text", ""))
+                        raw_selector = args.get("selector", "")
+                        text = args.get("text", "")
+
+                        # Sanitize selector
+                        try:
+                            selector = _sanitize_selector(raw_selector)
+                        except ValueError as ve:
+                            logger.error(f"Cannot sanitize selector: {ve}")
+                            errors.append(
+                                AgentError(
+                                    type="selector_error",
+                                    severity="medium",
+                                    message=f"Invalid selector: {ve}",
+                                    url=current_url,
+                                )
+                            )
+                            continue
+
+                        # Get fallback selectors for input/textarea mismatch
+                        selectors_to_try = _get_input_fallback_selectors(selector)
+
+                        typed = False
+                        last_error = None
+                        for sel in selectors_to_try:
+                            try:
+                                await self.browser.type_text(sel, text)
+                                if sel != selector:
+                                    logger.info(f"  ✅ Fallback selector worked: {sel}")
+                                typed = True
+                                break
+                            except Exception as e:
+                                last_error = e
+                                logger.debug(f"Selector {sel} failed: {e}")
+
+                        if not typed:
+                            raise last_error or Exception(
+                                f"All selectors failed for: {raw_selector}"
+                            )
+
                     elif name == "wait":
                         seconds = args.get("seconds", 2)
+                        # Validate seconds is a number
+                        if isinstance(seconds, str):
+                            try:
+                                seconds = int(float(seconds))
+                            except ValueError:
+                                seconds = 2
+                        seconds = max(1, min(seconds, 30))  # Clamp to 1-30 seconds
                         logger.info(f"  ⏳ Waiting for {seconds} seconds...")
                         await asyncio.sleep(seconds)
                 except Exception as e:
