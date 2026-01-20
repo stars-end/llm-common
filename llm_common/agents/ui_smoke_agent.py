@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 from llm_common.agents.schemas import AgentError, AgentStory, StepResult, StoryResult
 from llm_common.core import LLMClient, LLMMessage, MessageRole
+from llm_common.glm_models import GLMModels
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,9 @@ class BrowserAdapter(Protocol):
 
     async def screenshot(self) -> str:
         ...  # Base64 string
+
+    async def get_content(self) -> str:
+        ...
 
     async def get_console_errors(self) -> list[str]:
         ...
@@ -335,6 +339,21 @@ class UISmokeAgent:
                 {
                     "type": "function",
                     "function": {
+                        "name": "wait_for_selector",
+                        "description": "Wait until a selector exists/visible on the page",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "selector": {"type": "string"},
+                                "timeout_ms": {"type": "integer"},
+                            },
+                            "required": ["selector"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
                         "name": "complete_step",
                         "description": "Call this when the step goal is achieved",
                         "parameters": {"type": "object", "properties": {}},
@@ -347,7 +366,7 @@ class UISmokeAgent:
             try:
                 response = await self.llm.chat_completion(
                     messages=messages,
-                    model="glm-4.6v",  # Explicit vision model
+                    model=GLMModels.VISION,
                     tools=tools,
                     tool_choice="auto",
                     extra_body={"thinking": {"type": "enabled"}},
@@ -356,13 +375,13 @@ class UISmokeAgent:
                 error_msg = str(e)
                 if "safety" in error_msg.lower() or "1301" in error_msg or "1214" in error_msg:
                     logger.warning(
-                        f"GLM-4.6v safety/error triggered, backoff 5s then trying GLM-4.5v: {e}"
+                        f"{GLMModels.VISION} safety/error triggered, backoff 5s then trying fallback: {e}"
                     )
                     await asyncio.sleep(5)
                     try:
                         response = await self.llm.chat_completion(
                             messages=messages,
-                            model="glm-4.5v",  # Fallback vision model
+                            model=getattr(GLMModels, "VISION_FALLBACK", GLMModels.VISION),
                             tools=tools,
                             tool_choice="auto",
                             extra_body={"thinking": {"type": "enabled"}},
@@ -389,7 +408,7 @@ class UISmokeAgent:
             # The current ZaiClient doesn't automatically map tool_calls to LLMResponse yet
             raw_response = response.metadata.get("raw_response", {})
             message = raw_response.get("choices", [{}])[0].get("message", {})
-            tool_calls = message.get("tool_calls", [])
+            tool_calls = response.metadata.get("tool_calls") or message.get("tool_calls", [])
 
             if not tool_calls:
                 # If no tool calls, but there is content, maybe it's just talking
@@ -519,6 +538,32 @@ class UISmokeAgent:
                         seconds = max(1, min(seconds, 30))  # Clamp to 1-30 seconds
                         logger.info(f"  ⏳ Waiting for {seconds} seconds...")
                         await asyncio.sleep(seconds)
+                    elif name == "wait_for_selector":
+                        raw_selector = args.get("selector", "")
+                        timeout_ms = args.get("timeout_ms", 5000)
+
+                        try:
+                            selector = _sanitize_selector(raw_selector)
+                        except ValueError as ve:
+                            logger.error(f"Cannot sanitize selector: {ve}")
+                            errors.append(
+                                AgentError(
+                                    type="selector_error",
+                                    severity="medium",
+                                    message=f"Invalid selector: {ve}",
+                                    url=current_url,
+                                )
+                            )
+                            continue
+
+                        if isinstance(timeout_ms, str):
+                            try:
+                                timeout_ms = int(float(timeout_ms))
+                            except ValueError:
+                                timeout_ms = 5000
+
+                        timeout_ms = max(1000, min(timeout_ms, 60000))
+                        await self.browser.wait_for_selector(selector, timeout_ms=timeout_ms)
                 except Exception as e:
                     logger.error(f"  ❌ Tool error ({name}): {e}")
                     errors.append(
@@ -539,36 +584,50 @@ class UISmokeAgent:
         prompt = "EXACT TEXT EXTRACTION TASK:\nExtract all visible text, numbers, and labels from this UI screenshot. Provide a clean list of text fragments you see. If the image is blank or black, say 'EMPTY'."
 
         try:
-            response = await self.llm.chat_completion(
-                messages=[
-                    LLMMessage(
-                        role=MessageRole.SYSTEM,
-                        content="You are a precise OCR agent. Extract all text exactly as shown. No conversational filler.",
-                    ),
-                    LLMMessage(
-                        role=MessageRole.USER,
-                        content=[
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
-                            },
-                        ],
-                    ),
-                ],
-                model="glm-4.5v",  # Use 4.5v for extraction
-                temperature=0.0,
-            )
+            messages = [
+                LLMMessage(
+                    role=MessageRole.SYSTEM,
+                    content="You are a precise OCR agent. Extract all text exactly as shown. No conversational filler.",
+                ),
+                LLMMessage(
+                    role=MessageRole.USER,
+                    content=[
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+                        },
+                    ],
+                ),
+            ]
+
+            ocr_model = getattr(GLMModels, "VISION_OCR", getattr(GLMModels, "VISION_FALLBACK", GLMModels.VISION))
+            try:
+                response = await self.llm.chat_completion(
+                    messages=messages,
+                    model=ocr_model,
+                    temperature=0.0,
+                )
+            except Exception as e:
+                # Fall back to the primary vision model if the OCR model is unavailable.
+                logger.warning(f"OCR model {ocr_model} failed, retrying with {GLMModels.VISION}: {e}")
+                response = await self.llm.chat_completion(
+                    messages=messages,
+                    model=GLMModels.VISION,
+                    temperature=0.0,
+                )
 
             extracted_text = response.content.lower()
             if "empty" in extracted_text and len(extracted_text) < 20:
                 logger.warning("  ❌ Verification failed: Screenshot is reported as EMPTY.")
                 return False
 
+            extracted_norm = " ".join(extracted_text.split())
             missing = []
             for criterion in validation_criteria:
                 # Basic fuzzy check (lowercase, stripped)
-                if criterion.lower().strip() not in extracted_text:
+                needle = " ".join(criterion.lower().strip().split())
+                if needle and needle not in extracted_norm:
                     missing.append(criterion)
 
             if missing:

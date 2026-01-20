@@ -65,6 +65,8 @@ id: story-login-dashboard
 persona: "New user exploring the application"
 
 steps:
+  # Steps can be either structured dicts (recommended) or simple strings.
+  # Simple strings are normalized into {id, description, validation_criteria: []}.
   - id: step-1-login
     description: |
       Navigate to /login and authenticate using test credentials.

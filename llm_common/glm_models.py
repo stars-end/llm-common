@@ -34,6 +34,11 @@ class GLMModels:
     # Best for: UI testing, image analysis, document OCR
     VISION = "glm-4.6v"
 
+    # Optional fallback vision model for extraction-heavy tasks.
+    # Note: availability depends on the provider plan; UISmokeAgent will retry with VISION on failure.
+    VISION_FALLBACK = "glm-4.5v"
+    VISION_OCR = VISION_FALLBACK
+
     # Lightweight/flash model - fast, non-reasoning
     # Best for: Simple extraction, classification, quick responses
     FLASH = "glm-4.5"

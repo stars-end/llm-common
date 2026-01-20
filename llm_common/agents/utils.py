@@ -5,6 +5,15 @@ import yaml
 from llm_common.agents.schemas import AgentStory
 
 
+def load_story(path: Path) -> AgentStory:
+    """Load a single .yml/.yaml story file into AgentStory."""
+    with open(path) as f:
+        data = yaml.safe_load(f)
+        if not data:
+            raise ValueError(f"Story file is empty: {path}")
+        return AgentStory(**data)
+
+
 def load_stories_from_directory(directory: Path) -> list[AgentStory]:
     """Load all .yml/.yaml stories from a directory.
 
@@ -20,12 +29,7 @@ def load_stories_from_directory(directory: Path) -> list[AgentStory]:
 
     for file_path in directory.glob("*.y*ml"):
         try:
-            with open(file_path) as f:
-                data = yaml.safe_load(f)
-                if not data:
-                    continue
-                # Map YAML keys to AgentStory fields (handling slight variations if needed)
-                stories.append(AgentStory(**data))
+            stories.append(load_story(file_path))
         except Exception as e:
             # Inline print since we don't have logger here easily without circular import
             print(f"Error loading story from {file_path}: {e}")

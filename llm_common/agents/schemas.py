@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SubTask(BaseModel):
@@ -47,12 +47,63 @@ class SubTaskResult(BaseModel):
 class AgentStory(BaseModel):
     """User story for smoke tests."""
 
+    model_config = ConfigDict(extra="allow")
+
     id: str
     persona: str
-    steps: list[
-        dict[str, Any]
-    ]  # Expected keys: id, description, validation_criteria (Optional[List[str]])
+    description: str | None = None
+    start_url: str | None = None
+    timeout_seconds: int | None = None
+    goals: list[str] = Field(default_factory=list)
+    steps: list[dict[str, Any]]
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("steps", mode="before")
+    @classmethod
+    def _normalize_steps(cls, value: Any) -> list[dict[str, Any]]:
+        """Normalize steps into the canonical dict-based format.
+
+        Supports both:
+        - Structured steps: list[dict] with keys like id/description/validation_criteria
+        - Shorthand steps: list[str] where each string is treated as the step description
+        """
+        if value is None:
+            return []
+
+        if not isinstance(value, list):
+            raise TypeError("steps must be a list")
+
+        normalized: list[dict[str, Any]] = []
+        for index, item in enumerate(value, start=1):
+            if isinstance(item, str):
+                normalized.append(
+                    {
+                        "id": f"step-{index}",
+                        "description": item,
+                        "validation_criteria": [],
+                    }
+                )
+                continue
+
+            if isinstance(item, dict):
+                step_id = item.get("id") or f"step-{index}"
+                description = item.get("description") or item.get("step") or ""
+                validation_criteria = item.get("validation_criteria") or item.get("verify") or []
+                if validation_criteria is None:
+                    validation_criteria = []
+                normalized.append(
+                    {
+                        **item,
+                        "id": step_id,
+                        "description": description,
+                        "validation_criteria": validation_criteria,
+                    }
+                )
+                continue
+
+            raise TypeError("each step must be a dict or a string")
+
+        return normalized
 
 
 class AgentError(BaseModel):
