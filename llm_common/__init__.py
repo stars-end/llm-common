@@ -19,11 +19,12 @@ from llm_common.core import (
     WebSearchResult,
 )
 from llm_common.embeddings import EmbeddingService, OpenAIEmbeddingService
+from llm_common.glm_models import GLMModels
 from llm_common.providers import OpenRouterClient, ZaiClient
 from llm_common.retrieval import RetrievalBackend, RetrievedChunk
 from llm_common.web_search import WebSearchClient
 
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 
 __all__ = [
     # Version
@@ -46,6 +47,8 @@ __all__ = [
     "RateLimitError",
     "TimeoutError",
     "CacheError",
+    # Models
+    "GLMModels",
     # Providers
     "ZaiClient",
     "OpenRouterClient",
