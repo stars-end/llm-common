@@ -1,4 +1,6 @@
-"""Agents module for llm-common."""
+
+from llm_common.agents.exceptions import ElementNotFoundError
+
 
 from llm_common.agents.callbacks import (
     AgentCallbacks,
@@ -63,6 +65,8 @@ from llm_common.agents.utils import load_story, load_stories_from_directory
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient, StreamChunk
 
 __all__ = [
+    "ElementNotFoundError",
+
     # Message History
     "Message",
     "MessageHistory",
