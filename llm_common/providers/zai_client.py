@@ -115,6 +115,11 @@ class ZaiClient(LLMClient):
 
         start_time = time.time()
 
+        # Merge extra_body from kwargs with GLM-4.7 thinking feature
+        extra_body = kwargs.pop("extra_body", {})
+        if "glm-4.7" in model:
+            extra_body = {**extra_body, "thinking": {"type": "enabled"}}
+
         try:
             response = await self.client.chat.completions.create(
                 model=model,
@@ -127,7 +132,7 @@ class ZaiClient(LLMClient):
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
+                extra_body=extra_body if extra_body else None,
                 **kwargs,
             )
 
@@ -199,6 +204,11 @@ class ZaiClient(LLMClient):
         estimated_cost = self._estimate_cost(model, len(str(messages)), max_tokens)
         self.check_budget(estimated_cost)
 
+        # Merge extra_body from kwargs with GLM-4.7 thinking feature
+        extra_body = kwargs.pop("extra_body", {})
+        if "glm-4.7" in model:
+            extra_body = {**extra_body, "thinking": {"type": "enabled"}}
+
         try:
             stream = await self.client.chat.completions.create(
                 model=model,
@@ -212,7 +222,7 @@ class ZaiClient(LLMClient):
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
-                extra_body={"thinking": {"type": "enabled"}} if "glm-4.7" in model else {},
+                extra_body=extra_body if extra_body else None,
                 **kwargs,
             )
 
@@ -371,6 +381,14 @@ class ZaiClient(LLMClient):
             return True
         except Exception:
             return False
+
+    async def close(self) -> None:
+        """Close the underlying OpenAI client.
+
+        This should be called when done using the client to properly
+        clean up resources.
+        """
+        await self.client.close()
 
     def _estimate_cost(self, model: str, input_length: int, max_tokens: int) -> float:
         """Estimate cost of request.

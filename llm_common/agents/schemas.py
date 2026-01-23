@@ -1,6 +1,33 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _normalize_step(step: str | dict[str, Any], index: int) -> dict[str, Any]:
+    """Normalize a step to dict format.
+
+    Args:
+        step: Either a string description or a dict with step details
+        index: Step index for generating default id
+
+    Returns:
+        Normalized dict with id, description, and optional validation_criteria
+    """
+    if isinstance(step, str):
+        return {
+            "id": f"step-{index + 1}",
+            "description": step,
+            "validation_criteria": [],
+        }
+    elif isinstance(step, dict):
+        # Ensure required fields exist
+        if "id" not in step:
+            step = {**step, "id": f"step-{index + 1}"}
+        if "validation_criteria" not in step:
+            step = {**step, "validation_criteria": []}
+        return step
+    else:
+        raise ValueError(f"Step must be string or dict, got {type(step)}")
 
 
 class SubTask(BaseModel):
@@ -45,14 +72,42 @@ class SubTaskResult(BaseModel):
 
 
 class AgentStory(BaseModel):
-    """User story for smoke tests."""
+    """User story for smoke tests.
+
+    Steps can be provided as either:
+    - String: "Navigate to Advisor page"
+    - Dict: {"id": "step-1", "description": "Navigate to Advisor page", "validation_criteria": ["Advisor"]}
+
+    String steps will be automatically normalized to dict format.
+    """
 
     id: str
     persona: str
     steps: list[
-        dict[str, Any]
+        str | dict[str, Any]
     ]  # Expected keys: id, description, validation_criteria (Optional[List[str]])
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("steps", mode="before")
+    @classmethod
+    def normalize_steps(cls, v: Any) -> list[dict[str, Any]]:
+        """Normalize steps to dict format.
+
+        Accepts both string and dict steps, converting all to dict format.
+        """
+        if not isinstance(v, list):
+            raise ValueError("steps must be a list")
+
+        return [_normalize_step(step, i) for i, step in enumerate(v)]
+
+    @property
+    def normalized_steps(self) -> list[dict[str, Any]]:
+        """Return steps as normalized dicts.
+
+        This property is for backward compatibility - after validation,
+        steps are already normalized by the validator.
+        """
+        return self.steps  # type: ignore[return-value]
 
 
 class AgentError(BaseModel):
@@ -103,3 +158,14 @@ class SmokeRunReport(BaseModel):
     started_at: str
     completed_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def to_json_dict(self) -> dict[str, Any]:
+        """Convert to a JSON-serializable dict.
+
+        This ensures all nested Pydantic models are properly converted
+        for use with json.dump().
+
+        Returns:
+            JSON-serializable dictionary
+        """
+        return self.model_dump(mode="json")
