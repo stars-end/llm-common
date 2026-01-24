@@ -169,6 +169,11 @@ class UISmokeAgent:
         """
         logger.info(f"🚀 Running story: {story.id}")
         story_errors = []
+        start_url = story.metadata.get("start_url")
+        if start_url:
+            logger.info(f"  📍 Navigating to start URL: {start_url}")
+            await self.browser.navigate(start_url)
+
         step_results = []
 
         for step_data in story.steps:

@@ -35,9 +35,23 @@ def load_story(path: Path) -> Story:
     for i, raw_step in enumerate(raw_steps):
         if isinstance(raw_step, dict):
             # New format with structured step
+            description = raw_step.get("description", "")
+            
+            # Handle structured actions (bd-fix-v1.4)
+            if not description and "action" in raw_step:
+                action = raw_step.get("action")
+                selector = raw_step.get("selector", "")
+                target = raw_step.get("target", "")
+                if action == "wait_for_selector":
+                    description = f"Wait for selector: {selector}"
+                elif action == "click":
+                    description = f"Click {target or selector}"
+                else:
+                    description = f"Execute action: {action}"
+
             step = StoryStep(
                 id=raw_step.get("id", f"step-{i+1}"),
-                description=raw_step.get("description", ""),
+                description=description,
                 exploration_budget=raw_step.get("exploration_budget", 0),
             )
         else:
