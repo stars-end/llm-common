@@ -1,5 +1,8 @@
 
-from llm_common.agents.exceptions import ElementNotFoundError
+from llm_common.agents.exceptions import (
+    ElementNotFoundError,
+    NavigationError,
+)
 
 
 from llm_common.agents.callbacks import (
@@ -66,6 +69,7 @@ from llm_common.providers.zai_client import GLMConfig, GLMVisionClient, StreamCh
 
 __all__ = [
     "ElementNotFoundError",
+    "NavigationError",
 
     # Message History
     "Message",
