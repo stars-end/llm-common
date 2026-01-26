@@ -31,6 +31,10 @@ class UISmokeRunner:
         suite_timeout: int = 5400,
         story_timeout: int = 900,
         tracing: bool = False,
+        nav_timeout_ms: int = 30000,
+        action_timeout_ms: int = 30000,
+        block_domains: list[str] | None = None,
+        no_default_blocklist: bool = False,
     ):
         self.base_url = base_url
         self.stories_dir = stories_dir
@@ -41,10 +45,16 @@ class UISmokeRunner:
         self.suite_timeout = suite_timeout
         self.story_timeout = story_timeout
         self.tracing = tracing
+        self.nav_timeout_ms = nav_timeout_ms
+        self.action_timeout_ms = action_timeout_ms
+        self.block_domains = block_domains
+        self.no_default_blocklist = no_default_blocklist
 
-        # Artifact setup
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.stories_output_dir = self.output_dir / "stories"
+        # Per-run artifact setup
+        self.run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        self.run_output_dir = self.output_dir / self.run_id
+        self.run_output_dir.mkdir(parents=True, exist_ok=True)
+        self.stories_output_dir = self.run_output_dir / "stories"
         self.stories_output_dir.mkdir(exist_ok=True)
 
     async def run(self) -> bool:
@@ -54,9 +64,9 @@ class UISmokeRunner:
             logger.error(f"No stories found in {self.stories_dir}")
             return False
 
-        logger.info(f"🚀 Starting UISmoke run with {len(stories)} stories")
+        logger.info(f"🚀 Starting UISmoke run {self.run_id} with {len(stories)} stories")
 
-        run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        run_id = self.run_id
         started_at = datetime.now(UTC).isoformat()
 
         story_results: list[StoryResult] = []
@@ -106,7 +116,11 @@ class UISmokeRunner:
                     if is_guest:
                         if not guest_adapter:
                             guest_browser, guest_context, guest_adapter = await create_playwright_context(
-                                self.base_url, headless=self.headless, tracing=self.tracing
+                                self.base_url,
+                                headless=self.headless,
+                                tracing=self.tracing,
+                                block_domains=self.block_domains,
+                                no_default_blocklist=self.no_default_blocklist,
                             )
                         current_adapter = guest_adapter
                     else:
@@ -115,7 +129,9 @@ class UISmokeRunner:
                                 self.base_url,
                                 headless=self.headless,
                                 storage_state=self.auth_config.storage_state_path,
-                                tracing=self.tracing
+                                tracing=self.tracing,
+                                block_domains=self.block_domains,
+                                no_default_blocklist=self.no_default_blocklist,
                             )
                             # Apply & Verify Auth Once
                             if not await auth_manager.apply_auth(authed_adapter):
@@ -149,17 +165,40 @@ class UISmokeRunner:
                     )
 
                     logger.info(f"Running story: {story.id} ({persona})")
-                    story_timeout = story.metadata.get("timeout_seconds", self.story_timeout)
+                    story_yaml_timeout = story.metadata.get("timeout_seconds", 0)
+
+                    # Effective timeout = min(default_story_timeout, remaining_suite)
+                    # unless YAML explicitly opts into a *higher* timeout.
+                    remaining_suite = self.suite_timeout - (time.monotonic() - suite_start_time)
+                    eff_timeout = min(self.story_timeout, remaining_suite)
+
+                    if story_yaml_timeout > self.story_timeout:
+                        eff_timeout = min(story_yaml_timeout, remaining_suite)
+
+                    if eff_timeout <= 0:
+                        logger.warning(f"No time left for story {story.id}")
+                        story_results.append(StoryResult(
+                            story_id=story.id,
+                            status="not_run",
+                            errors=[AgentError(type="suite_timeout", severity="blocker", message="Suite timeout exceeded before story start")]
+                        ))
+                        continue
 
                     try:
-                        result = await asyncio.wait_for(agent.run_story(story), timeout=story_timeout)
+                        result = await asyncio.wait_for(agent.run_story(story), timeout=eff_timeout)
+
+                        # Write per-story artifact
+                        story_json = story_ev_dir / "story.json"
+                        with open(story_json, "w") as f:
+                            json.dump(result.model_dump(mode="json"), f, indent=2)
+
                         story_results.append(result)
                     except asyncio.TimeoutError:
-                        logger.error(f"Story {story.id} timed out after {story_timeout}s")
+                        logger.error(f"Story {story.id} timed out after {eff_timeout}s")
                         story_results.append(StoryResult(
                             story_id=story.id,
                             status="timeout",
-                            errors=[AgentError(type="story_timeout", severity="blocker", message=f"Exceeded {story_timeout}s")]
+                            errors=[AgentError(type="story_timeout", severity="blocker", message=f"Exceeded {int(eff_timeout)}s")]
                         ))
                         # Capture final state on timeout
                         await current_adapter.screenshot() # Will be in logs/evidence if handled in agent or adapter
@@ -206,6 +245,8 @@ class UISmokeRunner:
                 "stories_failed": sum(1 for r in story_results if r.status == "fail"),
                 "stories_timed_out": sum(1 for r in story_results if r.status == "timeout"),
                 "stories_not_run": sum(1 for r in story_results if r.status == "not_run"),
+                "suite_timeout_seconds": self.suite_timeout,
+                "story_timeout_seconds": self.story_timeout,
             }
         )
 
@@ -218,11 +259,11 @@ class UISmokeRunner:
     def _write_artifacts(self, report: SmokeRunReport):
         """Write run.json and run.md."""
         # JSON
-        with open(self.output_dir / "run.json", "w") as f:
+        with open(self.run_output_dir / "run.json", "w") as f:
             json.dump(report.to_json_dict(), f, indent=2)
 
         # Markdown
-        with open(self.output_dir / "run.md", "w") as f:
+        with open(self.run_output_dir / "run.md", "w") as f:
             f.write(f"# UISmoke Run Report: {report.run_id}\n\n")
             f.write(f"- **Environment**: {report.environment}\n")
             f.write(f"- **Base URL**: {report.base_url}\n")
@@ -250,12 +291,22 @@ def main():
     parser.add_argument("--auth-mode", choices=["none", "cookie_bypass", "ui_login", "storage_state"], default="none")
     parser.add_argument("--cookie-name", help="Bypass cookie name")
     parser.add_argument("--cookie-value", help="Bypass cookie value")
+    parser.add_argument("--cookie-domain", default="auto", help="Bypass cookie domain (auto or explicit)")
     parser.add_argument("--email", help="UI login email")
     parser.add_argument("--password", help="UI login password")
     parser.add_argument("--storage-state", help="Path to storage_state.json")
     parser.add_argument("--headless", action="store_true", default=True, help="Run headless")
     parser.add_argument("--no-headless", action="store_false", dest="headless")
     parser.add_argument("--tracing", action="store_true", help="Enable Playwright tracing")
+
+    # New flags
+    parser.add_argument("--suite-timeout", type=int, default=5400, help="Suite timeout in seconds")
+    parser.add_argument("--story-timeout", type=int, default=900, help="Story timeout in seconds")
+    parser.add_argument("--max-tool-iterations", type=int, default=12, help="Max tool iterations per story")
+    parser.add_argument("--nav-timeout-ms", type=int, default=30000, help="Playwright navigation timeout")
+    parser.add_argument("--action-timeout-ms", type=int, default=30000, help="Playwright action timeout")
+    parser.add_argument("--block-domain", action="append", dest="block_domains", help="Domain to block (repeatable)")
+    parser.add_argument("--no-default-blocklist", action="store_true", help="Disable default domain blocklist")
 
     args = parser.parse_args()
 
@@ -265,6 +316,7 @@ def main():
         mode=args.auth_mode,
         cookie_name=args.cookie_name,
         cookie_value=args.cookie_value,
+        cookie_domain=args.cookie_domain,
         email=args.email,
         password=args.password,
         storage_state_path=args.storage_state
@@ -276,7 +328,14 @@ def main():
         output_dir=Path(args.output),
         auth_config=auth_config,
         headless=args.headless,
-        tracing=args.tracing
+        tracing=args.tracing,
+        suite_timeout=args.suite_timeout,
+        story_timeout=args.story_timeout,
+        max_tool_iterations=args.max_tool_iterations,
+        nav_timeout_ms=args.nav_timeout_ms,
+        action_timeout_ms=args.action_timeout_ms,
+        block_domains=args.block_domains,
+        no_default_blocklist=args.no_default_blocklist,
     )
 
     success = asyncio.run(runner.run())
