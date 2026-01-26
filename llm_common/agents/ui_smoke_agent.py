@@ -468,6 +468,12 @@ class UISmokeAgent:
                     logger.warning(f"Failed to save debug evidence: {e}")
 
             # 2. Build prompt
+            # For LLM steps, we do NOT substitute variables to avoid leaking secrets.
+            # We keep the raw description which may contain {{ENV:...}}.
+            # If the user put secrets in description without {{ENV:...}}, that's on them.
+            # We explicitly redact any known {{ENV:...}} patterns if they are not meant for LLM.
+            # But here, we just want to ensure we don't accidentally reveal the VALUE.
+            
             prompt = (
                 f"Step: {self._redact_secrets(description)}\nCurrent URL: {current_url}\n"
                 "Goal: Complete the step described above."
