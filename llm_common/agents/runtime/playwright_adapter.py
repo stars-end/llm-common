@@ -16,14 +16,17 @@ logger = logging.getLogger(__name__)
 NAV_TIMEOUT_MS = int(os.environ.get("NAV_TIMEOUT_MS", "30000"))
 ACTION_TIMEOUT_MS = int(os.environ.get("ACTION_TIMEOUT_MS", "30000"))
 
-# Blocked resource patterns (analytics, telemetry, etc. that cause networkidle flakes)
-BLOCKED_RESOURCES = [
+# Default blocked resource patterns (analytics, telemetry, etc. that cause networkidle flakes)
+DEFAULT_BLOCKED_RESOURCES = [
     "google-analytics.com",
     "segment.io",
     "sentry.io",
     "hotjar.com",
     "intercom.io",
     "fullstory.com",
+    "clerk.com",
+    "clerk.shared.com",
+    "clerk.accounts.dev",
 ]
 
 class PlaywrightAdapter:
@@ -54,7 +57,9 @@ class PlaywrightAdapter:
             failure = request.failure
             if failure:
                 # Filter out blocked resources from error lists to reduce noise
-                if any(p in request.url for p in BLOCKED_RESOURCES):
+                # Note: This still uses local BLOCKED_RESOURCES if it's been updated by create_playwright_context
+                # But for simplicity in the listener, we just check against common patterns
+                if any(p in request.url for p in DEFAULT_BLOCKED_RESOURCES):
                     return
                 self._network_errors.append({
                     "url": request.url,
@@ -190,6 +195,8 @@ async def create_playwright_context(
     headless: bool = True,
     storage_state: str | None = None,
     tracing: bool = False,
+    block_domains: list[str] | None = None,
+    no_default_blocklist: bool = False,
 ) -> tuple[Browser, BrowserContext, PlaywrightAdapter]:
     """Factory to create a correctly configured Playwright context."""
     from playwright.async_api import async_playwright
@@ -211,10 +218,19 @@ async def create_playwright_context(
     context = await browser.new_context(**context_options)
 
     # Network blocking: prevent analytics from hanging networkidle-like waits if they ever slip in
-    await context.route("**/*", lambda route: (
-        route.abort() if any(p in route.request.url for p in BLOCKED_RESOURCES)
-        else route.continue_()
-    ))
+    blocklist = list(DEFAULT_BLOCKED_RESOURCES) if not no_default_blocklist else []
+    if block_domains:
+        blocklist.extend(block_domains)
+
+    async def _route_handler(route):
+        url = route.request.url
+        if any(p in url for p in blocklist):
+            logger.debug(f"Blocking request: {url}")
+            await route.abort()
+        else:
+            await route.continue_()
+
+    await context.route("**/*", _route_handler)
 
     if tracing:
         await context.tracing.start(screenshots=True, snapshots=True, sources=True)

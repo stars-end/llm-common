@@ -14,7 +14,7 @@ class AuthConfig:
     # For cookie_bypass
     cookie_name: str | None = None
     cookie_value: str | None = None
-    cookie_domain: str | None = None
+    cookie_domain: str | None = None  # "auto" or explicit
     # For ui_login
     email: str | None = None
     password: str | None = None
@@ -39,17 +39,21 @@ class AuthManager:
                 return False
 
             # Set cookie via Playwright context
+            domain = self.config.cookie_domain
+            if domain == "auto":
+                from urllib.parse import urlparse
+                domain = urlparse(adapter.base_url).hostname
+
             cookie = {
                 "name": self.config.cookie_name,
                 "value": self.config.cookie_value,
-                "domain": self.config.cookie_domain or "",
+                "domain": domain or "",
                 "path": "/",
+                "secure": adapter.base_url.startswith("https"),
+                "sameSite": "Lax" if adapter.base_url.startswith("https") else "Lax",
             }
-            # Note: PlaywrightAdapter currently only exposes Page, but we need Context for cookies.
-            # We'll assume the caller of create_playwright_context handles storage_state,
-            # but for cookie_bypass we might need to inject via page.context.add_cookies
             await adapter.page.context.add_cookies([cookie])
-            logger.info(f"Set bypass cookie: {self.config.cookie_name}")
+            logger.info(f"Set bypass cookie: {self.config.cookie_name} (domain={domain})")
             return True
 
         if self.config.mode == "ui_login":
