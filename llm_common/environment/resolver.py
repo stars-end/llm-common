@@ -4,6 +4,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
+
 class RuntimeContext(enum.Enum):
     LOCAL = "local"
     RAILWAY_PR = "railway_pr"
@@ -11,6 +12,7 @@ class RuntimeContext(enum.Enum):
     RAILWAY_PROD = "railway_prod"
     GITHUB_CI = "github_ci"
     JULES_SANDBOX = "jules_sandbox"
+
 
 class ServiceRegistry:
     def __init__(self, overrides: dict[str, str] | None = None):
@@ -45,5 +47,6 @@ class ServiceRegistry:
         if self._context == RuntimeContext.RAILWAY_PR:
             return f"http://{service_name}.railway.internal:{port}"
         return f"http://localhost:{port}"
+
 
 resolver = ServiceRegistry()

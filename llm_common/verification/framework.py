@@ -20,13 +20,15 @@ logger = logging.getLogger("verification.framework")
 
 class StoryCategory(str, Enum):
     """Category of verification story."""
-    RAG_PIPELINE = "rag"       # Affordabot RAG pipeline
-    USER_STORY = "pr"          # Prime-radiant user story
-    INTEGRATION = "int"        # Cross-service integration
+
+    RAG_PIPELINE = "rag"  # Affordabot RAG pipeline
+    USER_STORY = "pr"  # Prime-radiant user story
+    INTEGRATION = "int"  # Cross-service integration
 
 
 class StoryStatus(str, Enum):
     """Status of a verification story."""
+
     PENDING = "pending"
     RUNNING = "running"
     PASSED = "passed"
@@ -41,16 +43,17 @@ class VerificationStory:
 
     A story represents one testable unit - e.g., "RAG Discovery" or "Deep Chat".
     """
-    id: str                                    # e.g., "rag_01_discovery"
-    name: str                                  # e.g., "Discovery: LLM Query Generation"
+
+    id: str  # e.g., "rag_01_discovery"
+    name: str  # e.g., "Discovery: LLM Query Generation"
     category: StoryCategory
-    phase: int                                 # 0-11 for ordering
-    run: Callable | None = None             # async function to execute
+    phase: int  # 0-11 for ordering
+    run: Callable | None = None  # async function to execute
     screenshot_selector: str | None = None  # CSS selector for screenshot
     glm_prompt: str = "Describe the main UI elements visible in this screenshot."
-    requires_browser: bool = False             # Does this need Playwright?
-    requires_llm: bool = False                 # Does this use LLM calls?
-    llm_model: str = "glm-4.6"                # Which model to use
+    requires_browser: bool = False  # Does this need Playwright?
+    requires_llm: bool = False  # Does this use LLM calls?
+    llm_model: str = "glm-4.6"  # Which model to use
     timeout_seconds: int = 60
     description: str = ""
 
@@ -63,6 +66,7 @@ class VerificationStory:
 @dataclass
 class StoryResult:
     """Result of executing a verification story."""
+
     story: VerificationStory
     status: StoryStatus
     screenshot_path: str | None = None
@@ -80,7 +84,10 @@ class StoryResult:
 @dataclass
 class VerificationConfig:
     """Configuration for the verification run."""
-    run_id: str = field(default_factory=lambda: f"verify-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+
+    run_id: str = field(
+        default_factory=lambda: f"verify-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    )
     artifacts_dir: str = "artifacts/verification"
     enable_screenshots: bool = True
     enable_glm_validation: bool = True
@@ -108,6 +115,7 @@ class VerificationConfig:
 @dataclass
 class VerificationReport:
     """Complete verification report."""
+
     config: VerificationConfig
     results: list[StoryResult] = field(default_factory=list)
     start_time: str = ""
@@ -188,11 +196,10 @@ class UnifiedVerifier:
                 try:
                     from llm_common.core import LLMConfig
                     from llm_common.providers import ZaiClient
-                    self.glm_client = ZaiClient(LLMConfig(
-                        api_key=api_key,
-                        provider="zai",
-                        default_model="glm-4.6"
-                    ))
+
+                    self.glm_client = ZaiClient(
+                        LLMConfig(api_key=api_key, provider="zai", default_model="glm-4.6")
+                    )
                     logger.info("GLM client initialized for visual validation")
                 except Exception as e:
                     logger.warning(f"Failed to initialize GLM client: {e}")
@@ -201,6 +208,7 @@ class UnifiedVerifier:
         if any(s.requires_browser for s in self.stories):
             try:
                 from playwright.async_api import async_playwright
+
                 self._playwright = await async_playwright().start()
                 self.browser = await self._playwright.chromium.launch(headless=True)
                 self.page = await self.browser.new_page(viewport={"width": 1280, "height": 800})
@@ -212,7 +220,7 @@ class UnifiedVerifier:
         """Cleanup verification environment."""
         if self.browser:
             await self.browser.close()
-        if hasattr(self, '_playwright'):
+        if hasattr(self, "_playwright"):
             await self._playwright.stop()
 
     async def _run_story(self, story: VerificationStory) -> StoryResult:
@@ -225,10 +233,7 @@ class UnifiedVerifier:
 
             # Execute the story function if provided
             if story.run:
-                await asyncio.wait_for(
-                    story.run(self),
-                    timeout=story.timeout_seconds
-                )
+                await asyncio.wait_for(story.run(self), timeout=story.timeout_seconds)
 
             # Capture screenshot if browser available and selector provided
             if self.page and story.screenshot_selector:
@@ -240,8 +245,7 @@ class UnifiedVerifier:
             # GLM visual validation if enabled
             if self.glm_client and story.requires_llm and result.screenshot_path:
                 result.glm_response = await self._validate_with_glm(
-                    result.screenshot_path,
-                    story.glm_prompt
+                    result.screenshot_path, story.glm_prompt
                 )
                 result.llm_calls += 1
 
@@ -277,14 +281,14 @@ class UnifiedVerifier:
                 role=MessageRole.USER,
                 content=[
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
-                ]
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_data}"},
+                    },
+                ],
             )
 
-            response = await self.glm_client.chat_completion(
-                messages=[message],
-                model="glm-4.6v"
-            )
+            response = await self.glm_client.chat_completion(messages=[message], model="glm-4.6v")
 
             return response.content
 
@@ -294,10 +298,7 @@ class UnifiedVerifier:
 
     async def run_all(self) -> VerificationReport:
         """Run all registered verification stories."""
-        report = VerificationReport(
-            config=self.config,
-            start_time=datetime.now().isoformat()
-        )
+        report = VerificationReport(config=self.config, start_time=datetime.now().isoformat())
 
         try:
             await self._setup()

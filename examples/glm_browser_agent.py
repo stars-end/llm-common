@@ -55,7 +55,10 @@ def main() -> None:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "field_label": {"type": "string", "description": "Label of the input field"},
+                        "field_label": {
+                            "type": "string",
+                            "description": "Label of the input field",
+                        },
                         "text": {"type": "string", "description": "Text to type"},
                     },
                     "required": ["field_label", "text"],
@@ -99,9 +102,7 @@ def main() -> None:
     # Step 1: Initial screenshot analysis
     # (In real scenario, this would be a base64-encoded screenshot from Playwright)
     # For demo, we use a minimal 1x1 red pixel PNG
-    red_pixel_b64 = (
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
-    )
+    red_pixel_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
 
     messages = [
         {

@@ -55,10 +55,7 @@ class ArtifactManager:
 
         archive_path = archive_base / f"{run_id}.tar.gz"
         shutil.make_archive(
-            str(archive_path).replace('.tar.gz', ''),
-            'gztar',
-            run_dir.parent,
-            run_dir.name
+            str(archive_path).replace(".tar.gz", ""), "gztar", run_dir.parent, run_dir.name
         )
 
         logger.info(f"📦 Archived: {archive_path}")
@@ -69,7 +66,7 @@ class ArtifactManager:
         runs = sorted(
             [d for d in self.base_dir.iterdir() if d.is_dir() and d.name.startswith("verify-")],
             key=lambda d: d.stat().st_mtime,
-            reverse=True
+            reverse=True,
         )
 
         removed = 0
@@ -85,7 +82,7 @@ class ArtifactManager:
         runs = sorted(
             [d for d in self.base_dir.iterdir() if d.is_dir() and d.name.startswith("verify-")],
             key=lambda d: d.stat().st_mtime,
-            reverse=True
+            reverse=True,
         )
         return runs[0] if runs else None
 
@@ -95,10 +92,12 @@ class ArtifactManager:
         for d in self.base_dir.iterdir():
             if d.is_dir() and d.name.startswith("verify-"):
                 summary_file = d / "summary.json"
-                runs.append({
-                    "run_id": d.name,
-                    "path": str(d),
-                    "created": datetime.fromtimestamp(d.stat().st_mtime).isoformat(),
-                    "has_summary": summary_file.exists(),
-                })
+                runs.append(
+                    {
+                        "run_id": d.name,
+                        "path": str(d),
+                        "created": datetime.fromtimestamp(d.stat().st_mtime).isoformat(),
+                        "has_summary": summary_file.exists(),
+                    }
+                )
         return sorted(runs, key=lambda r: r["created"], reverse=True)

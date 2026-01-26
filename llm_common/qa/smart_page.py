@@ -7,6 +7,7 @@ try:
 except ImportError:
     Page = None
 
+
 class SmartPage:
     def __init__(self, page: Page | None = None):
         self.page = page

@@ -35,9 +35,7 @@ class TestAgentRuntime(unittest.TestCase):
         runtime.tool_selector.select_tool_calls = AsyncMock(
             return_value=[ToolCall(tool="test_tool", args={}, reasoning="testing")]
         )
-        runtime.executor.execute_tool_calls = AsyncMock(
-            return_value=[{"output": "tool result"}]
-        )
+        runtime.executor.execute_tool_calls = AsyncMock(return_value=[{"output": "tool result"}])
         runtime.synthesizer.synthesize = AsyncMock(
             return_value=StructuredAnswer(content="Final answer", sources=[])
         )

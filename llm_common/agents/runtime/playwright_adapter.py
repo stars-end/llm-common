@@ -26,6 +26,7 @@ DEFAULT_BLOCKED_RESOURCES = [
     "fullstory.com",
 ]
 
+
 class PlaywrightAdapter:
     """Canonical Playwright implementation of BrowserAdapter.
 
@@ -46,6 +47,7 @@ class PlaywrightAdapter:
 
     def _setup_listeners(self) -> None:
         """Monitor console and network for errors."""
+
         def on_console(msg):
             if msg.type in ("error", "warning"):
                 self._console_errors.append(f"[{msg.type}] {msg.text}")
@@ -58,11 +60,13 @@ class PlaywrightAdapter:
                 # But for simplicity in the listener, we just check against common patterns
                 if any(p in request.url for p in DEFAULT_BLOCKED_RESOURCES):
                     return
-                self._network_errors.append({
-                    "url": request.url,
-                    "method": request.method,
-                    "message": failure,
-                })
+                self._network_errors.append(
+                    {
+                        "url": request.url,
+                        "method": request.method,
+                        "message": failure,
+                    }
+                )
 
         self.page.on("console", on_console)
         self.page.on("requestfailed", on_request_failed)
@@ -75,12 +79,19 @@ class PlaywrightAdapter:
                 return await func()
             except PlaywrightTimeout:
                 last_error = PlaywrightTimeout(f"{action_name} timed out after {retries} attempts")
-                logger.warning(f"{action_name} timed out (attempt {i+1}/{retries}). Retrying in {2**i}s...")
+                logger.warning(
+                    f"{action_name} timed out (attempt {i+1}/{retries}). Retrying in {2**i}s..."
+                )
                 await asyncio.sleep(2**i)
             except Exception as e:
                 # Retry on typical SPA-related Playwright errors
-                if any(msg in str(e).lower() for msg in ["detached", "target closed", "context was destroyed"]):
-                    logger.warning(f"Browser state error during {action_name} (attempt {i+1}). Retrying...")
+                if any(
+                    msg in str(e).lower()
+                    for msg in ["detached", "target closed", "context was destroyed"]
+                ):
+                    logger.warning(
+                        f"Browser state error during {action_name} (attempt {i+1}). Retrying..."
+                    )
                     await asyncio.sleep(1)
                     last_error = e
                 else:
@@ -99,7 +110,9 @@ class PlaywrightAdapter:
             # Application-specific "ready" signals can be added here or via wait_for_selector in story
             # For robustness, we wait for body to be visible
             try:
-                await self.page.wait_for_selector("body", state="visible", timeout=min(5000, NAV_TIMEOUT_MS))
+                await self.page.wait_for_selector(
+                    "body", state="visible", timeout=min(5000, NAV_TIMEOUT_MS)
+                )
             except Exception:
                 pass
 
@@ -107,6 +120,7 @@ class PlaywrightAdapter:
             await asyncio.sleep(2)
         except Exception as e:
             from llm_common.agents.exceptions import NavigationError
+
             raise NavigationError(f"Navigation to {url} failed: {e}")
 
     async def click(self, target: str) -> None:
@@ -128,6 +142,7 @@ class PlaywrightAdapter:
             await self._retry_action(f"click({target})", _do_click)
         except Exception as e:
             from llm_common.agents.exceptions import ElementNotFoundError
+
             raise ElementNotFoundError(f"Click failed for {target}: {e}")
 
     async def type_text(self, selector: str, text: str) -> None:
@@ -144,7 +159,7 @@ class PlaywrightAdapter:
 
             # Clear existing text (Select All + Backspace)
             await self.page.keyboard.press("Control+A")
-            await self.page.keyboard.press("Meta+A") # Mac support
+            await self.page.keyboard.press("Meta+A")  # Mac support
             await self.page.keyboard.press("Backspace")
 
             # Type naturally
@@ -155,6 +170,7 @@ class PlaywrightAdapter:
             await self._retry_action(f"type_text({selector})", _do_type)
         except Exception as e:
             from llm_common.agents.exceptions import ElementNotFoundError
+
             raise ElementNotFoundError(f"Type failed for {selector}: {e}")
 
     async def screenshot(self) -> str:
@@ -186,6 +202,7 @@ class PlaywrightAdapter:
 
     async def close(self) -> None:
         await self.page.close()
+
 
 async def create_playwright_context(
     base_url: str,

@@ -17,6 +17,7 @@ from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
 
 logger = logging.getLogger(__name__)
 
+
 class UISmokeRunner:
     """Orchestrates UISmoke execution across multiple stories and personas."""
 
@@ -99,23 +100,85 @@ class UISmokeRunner:
                 # Check suite timeout
                 elapsed_suite = time.monotonic() - suite_start_time
                 if elapsed_suite > self.suite_timeout:
-                    logger.warning(f"Suite timeout reached ({self.suite_timeout}s). Skipping remaining stories.")
+                    logger.warning(
+                        f"Suite timeout reached ({self.suite_timeout}s). Skipping remaining stories."
+                    )
                     for remaining in stories[idx:]:
-                        story_results.append(StoryResult(
-                            story_id=remaining.id,
-                            status="not_run",
-                            errors=[AgentError(type="suite_timeout", severity="blocker", message="Suite timeout exceeded")]
-                        ))
+                        story_results.append(
+                            StoryResult(
+                                story_id=remaining.id,
+                                status="not_run",
+                                errors=[
+                                    AgentError(
+                                        type="suite_timeout",
+                                        severity="blocker",
+                                        message="Suite timeout exceeded",
+                                    )
+                                ],
+                            )
+                        )
                     break
 
                 persona = story.persona.lower()
-                is_guest = "guest" in persona or story.metadata.get("logout") is True
+                # Story-level overrides
+                story_auth_mode = story.metadata.get("auth_mode")
+                requires_real_clerk = story.metadata.get("requires_real_clerk", False)
 
-                # Setup context for persona
+                is_guest = "guest" in persona or story.metadata.get("logout") is True
+                is_ui_login = story_auth_mode == "ui_login" or requires_real_clerk
+
+                # If a story requires real clerk/ui_login, we MUST NOT use bypass cookie
+                # We'll create a transient context for ui_login if the main one is bypassed
+                current_adapter = None
+                temp_context = None
+                temp_browser = None
+
                 try:
-                    if is_guest:
+                    if is_ui_login:
+                        logger.info(
+                            f"Story {story.id} requires ui_login. Creating transient context..."
+                        )
+                        # Ensure we don't have bypass cookie here
+                        login_config = AuthConfig(
+                            mode="ui_login",
+                            email=self.auth_config.email,
+                            password=self.auth_config.password,
+                        )
+                        (
+                            temp_browser,
+                            temp_context,
+                            current_adapter,
+                        ) = await create_playwright_context(
+                            self.base_url,
+                            headless=self.headless,
+                            tracing=self.tracing,
+                            block_domains=self.block_domains,
+                            no_default_blocklist=self.no_default_blocklist,
+                        )
+                        temp_manager = AuthManager(login_config)
+                        if not await temp_manager.apply_auth(current_adapter):
+                            logger.error(f"UI Login failed for story {story.id}")
+                            story_results.append(
+                                StoryResult(
+                                    story_id=story.id,
+                                    status="fail",
+                                    errors=[
+                                        AgentError(
+                                            type="auth_failed",
+                                            severity="blocker",
+                                            message="UI Login failed",
+                                        )
+                                    ],
+                                )
+                            )
+                            continue
+                    elif is_guest:
                         if not guest_adapter:
-                            guest_browser, guest_context, guest_adapter = await create_playwright_context(
+                            (
+                                guest_browser,
+                                guest_context,
+                                guest_adapter,
+                            ) = await create_playwright_context(
                                 self.base_url,
                                 headless=self.headless,
                                 tracing=self.tracing,
@@ -125,7 +188,11 @@ class UISmokeRunner:
                         current_adapter = guest_adapter
                     else:
                         if not authed_adapter:
-                            authed_browser, authed_context, authed_adapter = await create_playwright_context(
+                            (
+                                authed_browser,
+                                authed_context,
+                                authed_adapter,
+                            ) = await create_playwright_context(
                                 self.base_url,
                                 headless=self.headless,
                                 storage_state=self.auth_config.storage_state_path,
@@ -143,11 +210,19 @@ class UISmokeRunner:
 
                         if not auth_verified:
                             logger.error(f"⚠️ Skipping authed story {story.id} due to auth failure.")
-                            story_results.append(StoryResult(
-                                story_id=story.id,
-                                status="not_run",
-                                errors=[AgentError(type="auth_failed", severity="blocker", message=auth_failed_reason or "Auth check failed")]
-                            ))
+                            story_results.append(
+                                StoryResult(
+                                    story_id=story.id,
+                                    status="not_run",
+                                    errors=[
+                                        AgentError(
+                                            type="auth_failed",
+                                            severity="blocker",
+                                            message=auth_failed_reason or "Auth check failed",
+                                        )
+                                    ],
+                                )
+                            )
                             continue
 
                         current_adapter = authed_adapter
@@ -161,7 +236,7 @@ class UISmokeRunner:
                         browser=current_adapter,
                         base_url=self.base_url,
                         max_tool_iterations=self.max_tool_iterations,
-                        evidence_dir=str(story_ev_dir)
+                        evidence_dir=str(story_ev_dir),
                     )
 
                     logger.info(f"Running story: {story.id} ({persona})")
@@ -177,15 +252,37 @@ class UISmokeRunner:
 
                     if eff_timeout <= 0:
                         logger.warning(f"No time left for story {story.id}")
-                        story_results.append(StoryResult(
-                            story_id=story.id,
-                            status="not_run",
-                            errors=[AgentError(type="suite_timeout", severity="blocker", message="Suite timeout exceeded before story start")]
-                        ))
+                        story_results.append(
+                            StoryResult(
+                                story_id=story.id,
+                                status="not_run",
+                                errors=[
+                                    AgentError(
+                                        type="suite_timeout",
+                                        severity="blocker",
+                                        message="Suite timeout exceeded before story start",
+                                    )
+                                ],
+                            )
+                        )
                         continue
 
                     try:
                         result = await asyncio.wait_for(agent.run_story(story), timeout=eff_timeout)
+
+                        # Forensics capture
+                        forensics = {
+                            "last_url": await current_adapter.get_current_url(),
+                            "console_errors": list(
+                                set([e.message for e in result.errors if e.type == "console_error"])
+                            ),
+                            "network_errors": list(
+                                set([e.message for e in result.errors if e.type == "network_error"])
+                            ),
+                            "classification": self._classify_failure(result),
+                        }
+                        with open(story_ev_dir / "forensics.json", "w") as f:
+                            json.dump(forensics, f, indent=2)
 
                         # Write per-story artifact
                         story_json = story_ev_dir / "story.json"
@@ -195,31 +292,45 @@ class UISmokeRunner:
                         story_results.append(result)
                     except asyncio.TimeoutError:
                         logger.error(f"Story {story.id} timed out after {eff_timeout}s")
-                        story_results.append(StoryResult(
+                        timeout_res = StoryResult(
                             story_id=story.id,
                             status="timeout",
-                            errors=[AgentError(type="story_timeout", severity="blocker", message=f"Exceeded {int(eff_timeout)}s")]
-                        ))
+                            errors=[
+                                AgentError(
+                                    type="story_timeout",
+                                    severity="blocker",
+                                    message=f"Exceeded {int(eff_timeout)}s",
+                                )
+                            ],
+                        )
+                        story_results.append(timeout_res)
                         # Capture final state on timeout
-                        await current_adapter.screenshot() # Will be in logs/evidence if handled in agent or adapter
+                        await current_adapter.screenshot()
 
                     # If tracing, stop and save trace for this story
                     if self.tracing:
-                        ctx = guest_context if is_guest else authed_context
+                        ctx = temp_context or (guest_context if is_guest else authed_context)
                         if ctx:
                             trace_path = story_ev_dir / "trace.zip"
                             await ctx.tracing.stop(path=str(trace_path))
-                            # Resume for next story if needed (or we'll just have one cumulative trace if we don't start/stop correctly)
-                            # Actually per tech-lead "trace.zip stored per story", so we should start/stop per story.
-                            await ctx.tracing.start(screenshots=True, snapshots=True, sources=True)
+                            if not is_ui_login:
+                                # Resume for next story if not transient
+                                await ctx.tracing.start(
+                                    screenshots=True, snapshots=True, sources=True
+                                )
 
                 except Exception as e:
                     logger.exception(f"Unexpected error in story {story.id}")
-                    story_results.append(StoryResult(
-                        story_id=story.id,
-                        status="fail",
-                        errors=[AgentError(type="crash", severity="blocker", message=str(e))]
-                    ))
+                    story_results.append(
+                        StoryResult(
+                            story_id=story.id,
+                            status="fail",
+                            errors=[AgentError(type="crash", severity="blocker", message=str(e))],
+                        )
+                    )
+                finally:
+                    if temp_browser:
+                        await temp_browser.close()
 
         finally:
             # Cleanup
@@ -236,7 +347,11 @@ class UISmokeRunner:
             environment=os.environ.get("ENVIRONMENT", "unknown"),
             base_url=self.base_url,
             story_results=story_results,
-            total_errors={"blocker": sum(1 for r in story_results for e in r.errors if e.severity == "blocker")}, # Simple tally
+            total_errors={
+                "blocker": sum(
+                    1 for r in story_results for e in r.errors if e.severity == "blocker"
+                )
+            },  # Simple tally
             started_at=started_at,
             completed_at=completed_at,
             metadata={
@@ -247,7 +362,9 @@ class UISmokeRunner:
                 "stories_not_run": sum(1 for r in story_results if r.status == "not_run"),
                 "suite_timeout_seconds": self.suite_timeout,
                 "story_timeout_seconds": self.story_timeout,
-            }
+                "auth_mode": self.auth_config.mode,
+                "cookie_signed": self.auth_config.cookie_signed,
+            },
         )
 
         self._write_artifacts(report)
@@ -255,6 +372,27 @@ class UISmokeRunner:
         success = all(r.status == "pass" for r in story_results)
         logger.info(f"UISmoke run complete. Success: {success}")
         return success
+
+    def _classify_failure(self, result: StoryResult) -> str | None:
+        """Heuristic to classify the failure type."""
+        if result.status == "pass":
+            return None
+
+        all_errors = result.errors
+        msg_blob = " ".join([e.message.lower() for e in all_errors])
+
+        if "timeout" in msg_blob:
+            return "timeout"
+        if "clerk" in msg_blob:
+            return "clerk_failed"
+        if "403" in msg_blob:
+            return "403_forbidden"
+        if "verification failed" in msg_blob:
+            return "strict_verification_failed"
+        if "navigation failed" in msg_blob:
+            return "navigation_failed"
+
+        return "other_fail"
 
     def _write_artifacts(self, report: SmokeRunReport):
         """Write run.json and run.md."""
@@ -272,26 +410,51 @@ class UISmokeRunner:
 
             f.write("## Summary\n")
             stats = report.metadata
-            f.write(f"✅ **Passed**: {stats['stories_passed']} | ❌ **Failed**: {stats['stories_failed']} | ⏰ **Timeout**: {stats['stories_timed_out']} | ⏭ **Not Run**: {stats['stories_not_run']}\n\n")
+            f.write(
+                f"✅ **Passed**: {stats['stories_passed']} | ❌ **Failed**: {stats['stories_failed']} | ⏰ **Timeout**: {stats['stories_timed_out']} | ⏭ **Not Run**: {stats['stories_not_run']}\n\n"
+            )
 
             f.write("## Results\n\n")
             for res in report.story_results:
-                icon = "✅" if res.status == "pass" else "❌" if res.status == "fail" else "⏰" if res.status == "timeout" else "⏭"
+                icon = (
+                    "✅"
+                    if res.status == "pass"
+                    else "❌"
+                    if res.status == "fail"
+                    else "⏰"
+                    if res.status == "timeout"
+                    else "⏭"
+                )
                 f.write(f"### {icon} {res.story_id} ({res.status})\n")
                 if res.errors:
                     for err in res.errors:
                         f.write(f"- [{err.severity}] {err.type}: {err.message}\n")
                 f.write("\n")
 
+
 def main():
     parser = argparse.ArgumentParser(description="UISmoke Universal Runner")
     parser.add_argument("--stories", required=True, help="Directory containing story YAMLs")
     parser.add_argument("--base-url", required=True, help="Target application URL")
     parser.add_argument("--output", required=True, help="Directory to write artifacts")
-    parser.add_argument("--auth-mode", choices=["none", "cookie_bypass", "ui_login", "storage_state"], default="none")
+    parser.add_argument(
+        "--auth-mode",
+        choices=["none", "cookie_bypass", "ui_login", "storage_state"],
+        default="none",
+    )
     parser.add_argument("--cookie-name", help="Bypass cookie name")
-    parser.add_argument("--cookie-value", help="Bypass cookie value")
-    parser.add_argument("--cookie-domain", default="auto", help="Bypass cookie domain (auto or explicit)")
+    parser.add_argument("--cookie-value", help="Bypass cookie value (e.g. 'admin')")
+    parser.add_argument(
+        "--cookie-domain", default="auto", help="Bypass cookie domain (auto or explicit)"
+    )
+    parser.add_argument(
+        "--cookie-signed", action="store_true", help="Enable HMAC signed bypass cookie"
+    )
+    parser.add_argument(
+        "--cookie-secret-env",
+        default="TEST_AUTH_BYPASS_SECRET",
+        help="Env var name containing HMAC secret",
+    )
     parser.add_argument("--email", help="UI login email")
     parser.add_argument("--password", help="UI login password")
     parser.add_argument("--storage-state", help="Path to storage_state.json")
@@ -302,24 +465,38 @@ def main():
     # New flags
     parser.add_argument("--suite-timeout", type=int, default=5400, help="Suite timeout in seconds")
     parser.add_argument("--story-timeout", type=int, default=900, help="Story timeout in seconds")
-    parser.add_argument("--max-tool-iterations", type=int, default=12, help="Max tool iterations per story")
-    parser.add_argument("--nav-timeout-ms", type=int, default=30000, help="Playwright navigation timeout")
-    parser.add_argument("--action-timeout-ms", type=int, default=30000, help="Playwright action timeout")
-    parser.add_argument("--block-domain", action="append", dest="block_domains", help="Domain to block (repeatable)")
-    parser.add_argument("--no-default-blocklist", action="store_true", help="Disable default domain blocklist")
+    parser.add_argument(
+        "--max-tool-iterations", type=int, default=12, help="Max tool iterations per story"
+    )
+    parser.add_argument(
+        "--nav-timeout-ms", type=int, default=120000, help="Playwright navigation timeout"
+    )
+    parser.add_argument(
+        "--action-timeout-ms", type=int, default=60000, help="Playwright action timeout"
+    )
+    parser.add_argument(
+        "--block-domain", action="append", dest="block_domains", help="Domain to block (repeatable)"
+    )
+    parser.add_argument(
+        "--no-default-blocklist", action="store_true", help="Disable default domain blocklist"
+    )
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
 
     auth_config = AuthConfig(
         mode=args.auth_mode,
         cookie_name=args.cookie_name,
         cookie_value=args.cookie_value,
         cookie_domain=args.cookie_domain,
+        cookie_signed=args.cookie_signed,
+        cookie_secret_env=args.cookie_secret_env,
         email=args.email,
         password=args.password,
-        storage_state_path=args.storage_state
+        storage_state_path=args.storage_state,
     )
 
     runner = UISmokeRunner(
@@ -340,6 +517,7 @@ def main():
 
     success = asyncio.run(runner.run())
     sys.exit(0 if success else 1)
+
 
 if __name__ == "__main__":
     main()
