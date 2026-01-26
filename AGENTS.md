@@ -49,3 +49,31 @@
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+
+---
+
+## Skills Architecture
+
+This repo follows the [agentskills.io](https://agentskills.io) specification for skill organization.
+
+### Global Skills (~/agent-skills)
+Workflow and automation skills managed centrally:
+- **Core workflows**: beads-workflow, sync-feature-branch, create-pull-request, finish-feature
+- **Issue management**: issue-first, fix-pr-feedback
+- **Planning**: plan-refine
+- **And 30+ more** in categories: core/, extended/, health/, infra/, dispatch/, search/
+
+### Repo-Specific Context Skills (.claude/skills/context-*)
+Domain-specific knowledge for llm-common:
+
+| Skill | Purpose |
+|-------|---------|
+| context-abstractions | Core LLM interfaces (BaseProvider, Message, Response) |
+| context-providers | LLM provider implementations (OpenAI, Anthropic, Zhipu/GLM) |
+| context-testing | Test utilities and patterns |
+
+### Auto-Update
+Context skills are automatically updated via GitHub Actions (`pr-context-update.yml`).
+
+### See Also
+- [~/agent-skills/AGENTS.md](https://github.com/stars-end/agent-skills/blob/master/AGENTS.md) - Global skills documentation
