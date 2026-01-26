@@ -24,9 +24,6 @@ DEFAULT_BLOCKED_RESOURCES = [
     "hotjar.com",
     "intercom.io",
     "fullstory.com",
-    "clerk.com",
-    "clerk.shared.com",
-    "clerk.accounts.dev",
 ]
 
 class PlaywrightAdapter:
@@ -206,7 +203,6 @@ async def create_playwright_context(
 
     context_options = {
         "viewport": {"width": 1280, "height": 800},
-        "user_agent": "UISmokeAgent/1.0",
         "bypass_csp": True,
         "ignore_https_errors": True,
     }
