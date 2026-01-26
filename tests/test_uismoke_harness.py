@@ -60,7 +60,7 @@ async def test_missing_env_error(mock_browser, mock_llm):
     if "NON_EXISTENT_VAR" in os.environ:
         del os.environ["NON_EXISTENT_VAR"]
 
-    step_data = {"description": "Use {{ENV:NON_EXISTENT_VAR}}"}
+    step_data = {"navigate": "{{ENV:NON_EXISTENT_VAR}}"}
     result = await agent._run_step("admin", "step-1", step_data)
 
     assert result.status == "fail"
@@ -263,3 +263,69 @@ def test_hardened_triage_logic(tmp_path):
         titles = [t["title"] for t in plan["subtasks"]]
         assert any("Bug: bug-story" in t for t in titles)
         assert any("Triage: triage-story" in t for t in titles)
+
+
+def test_assertion_failure_bug(tmp_path):
+    run_dir = tmp_path / "run_assert"
+    run_dir.mkdir()
+    stories_dir = run_dir / "stories"
+    stories_dir.mkdir()
+
+    run_data = {
+        "run_id": "assert",
+        "environment": "dev",
+        "base_url": "http://dev",
+        "story_results": [{"story_id": "assert-story", "status": "fail"}],
+    }
+    with open(run_dir / "run.json", "w") as f:
+        json.dump(run_data, f)
+
+    story_dir = stories_dir / "assert-story"
+    story_dir.mkdir()
+    with open(story_dir / "story_summary.json", "w") as f:
+        json.dump(
+            {
+                "classification": "reproducible_fail",
+                "final_attempt": {
+                    "step_results": [
+                        {
+                            "status": "fail",
+                            "actions_taken": [{"tool": "click", "deterministic": False}],
+                            "errors": [{"type": "assert_text", "message": "not found"}],
+                        }
+                    ]
+                },
+            },
+            f,
+        )
+
+    triage = UISmokeTriage(run_dir, "[TEST]", dry_run=True)
+    triage.triage()
+
+    with open(run_dir / "beads_plan.json") as f:
+        plan = json.load(f)
+        assert any("Bug: assert-story" in t["title"] for t in plan["subtasks"])
+
+
+def test_empty_triage_plan(tmp_path):
+    run_dir = tmp_path / "run_empty"
+    run_dir.mkdir()
+
+    run_data = {
+        "run_id": "empty",
+        "environment": "dev",
+        "base_url": "http://dev",
+        "story_results": [{"story_id": "ok-story", "status": "pass"}],
+    }
+    with open(run_dir / "run.json", "w") as f:
+        json.dump(run_data, f)
+
+    triage = UISmokeTriage(run_dir, "[TEST]", dry_run=True)
+    triage.triage()
+
+    plan_path = run_dir / "beads_plan.json"
+    assert plan_path.exists()
+    with open(plan_path) as f:
+        plan = json.load(f)
+        assert len(plan["subtasks"]) == 0
+        assert "No issues detected" in plan["epic"]["description"]

@@ -75,6 +75,12 @@ class UISmokeTriage:
 
         if not reproducible_fails and not flaky_issues and not capacity_issues:
             logger.info("No failures to triage. Skipping Beads issue creation.")
+            empty_plan = {
+                "epic": {"title": epic_title, "description": "No issues detected."},
+                "subtasks": [],
+            }
+            with open(self.run_dir / "beads_plan.json", "w") as f:
+                json.dump(empty_plan, f, indent=2)
             if self.dry_run:
                 print("\n=== BEADS TRIAGE PLAN (DRY RUN) ===")
                 print("No issues detected.\n")

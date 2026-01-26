@@ -210,15 +210,17 @@ class UISmokeAgent:
 
         # 1) Keyed form
         if "navigate" in step_data:
-            path = self._substitute_vars(step_data["navigate"])
-            logger.info(f"  ⚡ Deterministic Navigate: {path}")
+            raw_path = step_data["navigate"]
+            logger.info(f"  ⚡ Deterministic Navigate: {self._redact_secrets(raw_path)}")
+            path = self._substitute_vars(raw_path)
             await self.browser.navigate(path)
             _record("navigate", {"path": self._redact_secrets(path)})
             return True
 
         if "click" in step_data:
-            target = self._substitute_vars(step_data["click"])
-            logger.info(f"  ⚡ Deterministic Click: {target}")
+            raw_target = step_data["click"]
+            logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_target)}")
+            target = self._substitute_vars(raw_target)
             await self.browser.click(_sanitize_selector(target))
             _record("click", {"target": self._redact_secrets(target)})
             return True
@@ -226,7 +228,7 @@ class UISmokeAgent:
         if "type" in step_data:
             selector = self._substitute_vars(step_data.get("selector") or "")
             text = self._substitute_vars(step_data["type"])
-            logger.info(f"  ⚡ Deterministic Type into {selector}")
+            logger.info(f"  ⚡ Deterministic Type into {self._redact_secrets(selector)}")
             await self.browser.type_text(_sanitize_selector(selector), text)
             _record(
                 "type_text",
@@ -248,15 +250,17 @@ class UISmokeAgent:
 
         try:
             if action in {"navigate", "goto"}:
-                nav = self._substitute_vars(path or target or selector or "/")
-                logger.info(f"  ⚡ Deterministic Navigate: {nav}")
+                raw_nav = path or target or selector or "/"
+                logger.info(f"  ⚡ Deterministic Navigate: {self._redact_secrets(raw_nav)}")
+                nav = self._substitute_vars(raw_nav)
                 await self.browser.navigate(nav)
                 _record("navigate", {"path": self._redact_secrets(nav)})
                 return True
 
             if action == "click":
-                click_target = self._substitute_vars(target or selector or "")
-                logger.info(f"  ⚡ Deterministic Click: {click_target}")
+                raw_click_target = target or selector or ""
+                logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_click_target)}")
+                click_target = self._substitute_vars(raw_click_target)
                 await self.browser.click(_sanitize_selector(click_target))
                 _record("click", {"target": self._redact_secrets(click_target)})
                 return True
@@ -264,14 +268,14 @@ class UISmokeAgent:
             if action in {"type", "type_text", "fill"}:
                 sel = self._substitute_vars(selector or "")
                 val = self._substitute_vars(text or step_data.get("value") or "")
-                logger.info(f"  ⚡ Deterministic Type into {sel}")
+                logger.info(f"  ⚡ Deterministic Type into {self._redact_secrets(sel)}")
                 await self.browser.type_text(_sanitize_selector(sel), val)
                 _record("type_text", {"selector": self._redact_secrets(sel), "text": "[REDACTED]"})
                 return True
 
             if action in {"wait_for_selector", "check_element", "assert_visible"}:
                 sel = self._substitute_vars(selector or target or "")
-                logger.info(f"  ⚡ Deterministic Wait: {sel}")
+                logger.info(f"  ⚡ Deterministic Wait: {self._redact_secrets(sel)}")
                 await self.browser.wait_for_selector(_sanitize_selector(sel), timeout_ms=timeout_ms)
                 _record(
                     "wait_for_selector",
@@ -282,7 +286,7 @@ class UISmokeAgent:
             if action == "assert_text":
                 sel = self._substitute_vars(selector or target or "body")
                 required = self._substitute_vars(text or step_data.get("value") or "")
-                logger.info(f"  ⚡ Deterministic Assert Text in {sel}: {required}")
+                logger.info(f"  ⚡ Deterministic Assert Text in {self._redact_secrets(sel)}: {self._redact_secrets(required)}")
 
                 if sel == "body":
                     content = await self.browser.get_content()
@@ -327,7 +331,7 @@ class UISmokeAgent:
         for step_data in story.steps:
             step_id = step_data.get("id", "unknown")
             description = step_data.get("description", "")
-            logger.info(f"  Step: {step_id} - {description}")
+            logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
 
             start_time = time.time()
             step_result = await self._run_step(
@@ -363,17 +367,8 @@ class UISmokeAgent:
         actions_taken = []
         errors = []
 
-        # llm-uismoke-qa-loop.3: Variable Substitution
-        try:
-            description = self._substitute_vars(description)
-            validation_criteria = [self._substitute_vars(c) for c in validation_criteria]
-        except ValueError as e:
-            logger.error(f"  ❌ Variable substitution failed: {e}")
-            return StepResult(
-                step_id=step_id,
-                status="fail",
-                errors=[AgentError(type="missing_env", severity="blocker", message=str(e))],
-            )
+        # Variable substitution is allowed for deterministic steps only.
+        # For LLM-driven steps we keep placeholders to avoid leaking secrets into logs/prompts.
 
         # llm-uismoke-qa-loop.2: Deterministic Step Execution
         if any(k in step_data for k in ["action", "click", "navigate", "type"]):
@@ -403,6 +398,12 @@ class UISmokeAgent:
                     return StepResult(
                         step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
                     )
+            except ValueError as e:
+                logger.error(f"  ❌ Deterministic variable substitution failed: {e}")
+                errors.append(AgentError(type="missing_env", severity="blocker", message=str(e)))
+                return StepResult(
+                    step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+                )
             except Exception as e:
                 logger.error(f"  ❌ Deterministic execution failed: {e}")
                 errors.append(AgentError(type="ui_error", severity="medium", message=str(e)))
@@ -467,7 +468,10 @@ class UISmokeAgent:
                     logger.warning(f"Failed to save debug evidence: {e}")
 
             # 2. Build prompt
-            prompt = f"Step: {description}\nCurrent URL: {current_url}\nGoal: Complete the step described above."
+            prompt = (
+                f"Step: {self._redact_secrets(description)}\nCurrent URL: {current_url}\n"
+                "Goal: Complete the step described above."
+            )
 
             validation_msg = ""
             if validation_criteria:

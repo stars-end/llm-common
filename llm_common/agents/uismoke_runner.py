@@ -62,6 +62,7 @@ class UISmokeRunner:
         self.deterministic_only = deterministic_only
         self.fail_on_classifications = fail_on_classifications
         self.completed_ok = False
+        self.banned_classification_hit = False
 
         # Per-run artifact setup
         self.run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
@@ -199,7 +200,12 @@ class UISmokeRunner:
 
         self._write_artifacts(report)
 
-        success = all(r.status == "pass" for r in story_results)
+        if self.deterministic_only:
+            # Deterministic-only runs treat fully-skipped stories as OK; they validate only the
+            # deterministic harness surface area.
+            success = all(r.status in {"pass", "skip"} for r in story_results)
+        else:
+            success = all(r.status == "pass" for r in story_results)
         
         # Check for banned classifications
         if self.fail_on_classifications:
@@ -207,6 +213,7 @@ class UISmokeRunner:
                 if r.classification in self.fail_on_classifications:
                     logger.error(f"❌ Run failed due to banned classification: {r.classification} in {r.story_id}")
                     success = False
+                    self.banned_classification_hit = True
 
         self.completed_ok = True
         logger.info(f"UISmoke run complete. Success: {success}")
@@ -216,6 +223,8 @@ class UISmokeRunner:
         """Heuristic to classify the failure type."""
         if result.status == "pass":
             return None
+        if result.status == "skip":
+            return "skip"
 
         all_errors = result.errors
         msg_blob = " ".join([e.message.lower() for e in all_errors])
@@ -537,6 +546,9 @@ class UISmokeRunner:
                 with open(attempt_ev_dir / "forensics.json", "w") as f:
                     json.dump(forensics, f, indent=2)
 
+                with open(attempt_ev_dir / "story.json", "w") as f:
+                    json.dump(result.model_dump(mode="json"), f, indent=2)
+
                 return {
                     "result": result,
                     "authed_shared": (authed_browser, authed_context, authed_adapter)
@@ -592,6 +604,8 @@ class UISmokeRunner:
 
         if last_res.status == "pass":
             return "pass"
+        if last_res.status == "skip":
+            return "skip"
 
         if last_res.status == "not_run":
             for err in last_res.errors:
@@ -601,7 +615,9 @@ class UISmokeRunner:
                     return "auth_failed"
             return "not_run"
 
-        signatures = [self._classify_failure(r) for r in results if r.status != "pass"]
+        signatures = [
+            self._classify_failure(r) for r in results if r.status not in {"pass", "skip"}
+        ]
         if not signatures:
             return "unknown"
 
@@ -791,9 +807,13 @@ def main():
 
         all_passed = asyncio.run(runner.run())
         # In QA mode we return success if the harness completed (artifacts written),
-        # even if product bugs were found. Gate mode fails on any non-pass.
+        # even if product bugs were found, unless explicitly asked to fail on classifications.
         if args.mode == "qa":
-            sys.exit(0 if runner.completed_ok else 1)
+            if not runner.completed_ok:
+                sys.exit(1)
+            if runner.banned_classification_hit:
+                sys.exit(1)
+            sys.exit(0)
         sys.exit(0 if all_passed else 1)
     elif args.command == "triage":
         from llm_common.agents.uismoke_triage import UISmokeTriage
