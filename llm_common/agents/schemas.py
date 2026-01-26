@@ -137,6 +137,7 @@ class StoryResult(BaseModel):
     status: str  # pass, fail
     step_results: list[StepResult] = Field(default_factory=list)
     errors: list[AgentError] = Field(default_factory=list)
+    classification: str | None = None  # reproducible_fail, flaky_inconclusive, etc.
 
 
 class RelevantTurns(BaseModel):

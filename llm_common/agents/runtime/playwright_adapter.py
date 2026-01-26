@@ -12,9 +12,9 @@ from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 logger = logging.getLogger(__name__)
 
-# Default timeouts
-NAV_TIMEOUT_MS = int(os.environ.get("NAV_TIMEOUT_MS", "30000"))
-ACTION_TIMEOUT_MS = int(os.environ.get("ACTION_TIMEOUT_MS", "30000"))
+# Default timeouts (can be overridden per context)
+DEFAULT_NAV_TIMEOUT_MS = int(os.environ.get("NAV_TIMEOUT_MS", "30000"))
+DEFAULT_ACTION_TIMEOUT_MS = int(os.environ.get("ACTION_TIMEOUT_MS", "30000"))
 
 # Default blocked resource patterns (analytics, telemetry, etc. that cause networkidle flakes)
 DEFAULT_BLOCKED_RESOURCES = [
@@ -37,9 +37,21 @@ class PlaywrightAdapter:
     - Forensics (console logs, network errors, traces)
     """
 
-    def __init__(self, page: Page, base_url: str):
+    def __init__(
+        self,
+        page: Page,
+        base_url: str,
+        nav_timeout_ms: int | None = None,
+        action_timeout_ms: int | None = None,
+    ):
         self.page = page
         self.base_url = base_url.rstrip("/")
+        self.nav_timeout_ms = (
+            nav_timeout_ms if nav_timeout_ms is not None else DEFAULT_NAV_TIMEOUT_MS
+        )
+        self.action_timeout_ms = (
+            action_timeout_ms if action_timeout_ms is not None else DEFAULT_ACTION_TIMEOUT_MS
+        )
 
         self._console_errors: list[str] = []
         self._network_errors: list[dict[str, Any]] = []
@@ -105,13 +117,13 @@ class PlaywrightAdapter:
         logger.info(f"Navigating to {url}")
         try:
             # Use domcontentloaded to avoid hanging on background analytics/segment traffic
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=self.nav_timeout_ms)
 
             # Application-specific "ready" signals can be added here or via wait_for_selector in story
             # For robustness, we wait for body to be visible
             try:
                 await self.page.wait_for_selector(
-                    "body", state="visible", timeout=min(5000, NAV_TIMEOUT_MS)
+                    "body", state="visible", timeout=min(5000, self.nav_timeout_ms)
                 )
             except Exception:
                 pass
@@ -136,7 +148,7 @@ class PlaywrightAdapter:
 
             # force=True bypasses strict actionability checks if needed,
             # but we use it sparingly to ensure user-like behavior
-            await self.page.click(selector, timeout=ACTION_TIMEOUT_MS, force=True)
+            await self.page.click(selector, timeout=self.action_timeout_ms, force=True)
 
         try:
             await self._retry_action(f"click({target})", _do_click)
@@ -152,10 +164,10 @@ class PlaywrightAdapter:
         async def _do_type():
             # Wait for field to be ready
             locator = self.page.locator(selector)
-            await locator.wait_for(state="visible", timeout=ACTION_TIMEOUT_MS)
+            await locator.wait_for(state="visible", timeout=self.action_timeout_ms)
 
             # Click to focus
-            await locator.click(timeout=ACTION_TIMEOUT_MS, force=True)
+            await locator.click(timeout=self.action_timeout_ms, force=True)
 
             # Clear existing text (Select All + Backspace)
             await self.page.keyboard.press("Control+A")
@@ -200,6 +212,10 @@ class PlaywrightAdapter:
     async def get_content(self) -> str:
         return await self.page.content()
 
+    async def get_text(self, selector: str) -> str:
+        """Return inner text of an element."""
+        return await self.page.inner_text(selector)
+
     async def close(self) -> None:
         await self.page.close()
 
@@ -211,6 +227,8 @@ async def create_playwright_context(
     tracing: bool = False,
     block_domains: list[str] | None = None,
     no_default_blocklist: bool = False,
+    nav_timeout_ms: int | None = None,
+    action_timeout_ms: int | None = None,
 ) -> tuple[Browser, BrowserContext, PlaywrightAdapter]:
     """Factory to create a correctly configured Playwright context."""
     from playwright.async_api import async_playwright
@@ -249,6 +267,11 @@ async def create_playwright_context(
         await context.tracing.start(screenshots=True, snapshots=True, sources=True)
 
     page = await context.new_page()
-    adapter = PlaywrightAdapter(page, base_url)
+    adapter = PlaywrightAdapter(
+        page,
+        base_url,
+        nav_timeout_ms=nav_timeout_ms,
+        action_timeout_ms=action_timeout_ms,
+    )
 
     return browser, context, adapter
