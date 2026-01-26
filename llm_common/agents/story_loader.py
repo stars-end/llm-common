@@ -36,7 +36,7 @@ def load_story(path: Path) -> Story:
         if isinstance(raw_step, dict):
             # New format with structured step
             description = raw_step.get("description", "")
-            
+
             # Handle structured actions (bd-fix-v1.4)
             if not description and "action" in raw_step:
                 action = raw_step.get("action")

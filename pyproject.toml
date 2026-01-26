@@ -31,6 +31,9 @@ litellm = "^1.80.11"
 [tool.poetry.extras]
 pgvector = ["sqlalchemy", "asyncpg", "pgvector"]
 
+[tool.poetry.scripts]
+uismoke = "llm_common.agents.uismoke_runner:main"
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-asyncio = "^0.23.0"

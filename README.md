@@ -10,6 +10,7 @@ Shared LLM framework for affordabot and prime-radiant-ai.
 - **Structured Outputs**: Built-in support for instructor and Pydantic models
 - **Cost Tracking**: Per-request cost monitoring and budget alerts
 - **Retry Logic**: Exponential backoff with jitter for reliability
+- **Verification**: UISmoke Universal Runner for cross-repo automated story testing
 - **Type Safety**: Full mypy strict mode compliance
 
 ## Installation
@@ -126,6 +127,21 @@ analysis = await client.chat.completions.create(
     messages=[{"role": "user", "content": "Analyze this bill..."}]
 )
 ```
+
+### UISmoke (Automated Verification)
+
+UISmoke is a shared QA-engineer harness for executing autonomous UI stories using vision models.
+
+```bash
+# Run stories against a target URL
+uismoke run --stories ./docs/TESTING/STORIES --base-url https://dev.example.ai --output ./artifacts/verification
+```
+
+Features:
+- **Canonical Adapter**: Robust Playwright wrapper with network blocking and trace support.
+- **Fail-Fast Auth**: Validates login state before executing long-running suites.
+- **Artifacts**: Generates standardized `run.json`, `run.md`, and per-story evidence folders.
+- **Cross-Repo**: Used by `prime-radiant-ai` and `affordabot`.
 
 ## Architecture
 
