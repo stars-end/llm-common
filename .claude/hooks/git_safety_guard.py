@@ -11,6 +11,7 @@ DESTRUCTIVE_PATTERNS = [
     (r"rm\s+-[a-z]*r[a-z]*f", "rm -rf is destructive."),
 ]
 
+
 def main():
     try:
         input_data = json.load(sys.stdin)
@@ -23,15 +24,20 @@ def main():
 
     for pattern, reason in DESTRUCTIVE_PATTERNS:
         if re.search(pattern, command, re.IGNORECASE):
-            print(json.dumps({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": f"BLOCKED: {reason}\nCommand: {command}"
-                }
-            }))
+            print(
+                json.dumps(
+                    {
+                        "hookSpecificOutput": {
+                            "hookEventName": "PreToolUse",
+                            "permissionDecision": "deny",
+                            "permissionDecisionReason": f"BLOCKED: {reason}\nCommand: {command}",
+                        }
+                    }
+                )
+            )
             sys.exit(0)
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

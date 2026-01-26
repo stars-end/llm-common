@@ -266,9 +266,9 @@ def test_glm_generic_error(mock_urlopen):
     config = GLMConfig(api_key="test-key", default_model="glm-4.6v", max_retries=1)
     client = GLMClient(config)
 
-    error_response = json.dumps(
-        {"error": {"code": "400", "message": "Invalid request"}}
-    ).encode("utf-8")
+    error_response = json.dumps({"error": {"code": "400", "message": "Invalid request"}}).encode(
+        "utf-8"
+    )
 
     mock_urlopen.side_effect = HTTPError(
         "https://api.z.ai/...",

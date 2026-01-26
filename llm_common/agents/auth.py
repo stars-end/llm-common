@@ -1,12 +1,17 @@
 import logging
+import time
 from dataclasses import dataclass
-from typing import Literal
-
-from llm_common.agents.runtime.playwright_adapter import PlaywrightAdapter
+from typing import TYPE_CHECKING, Any, Literal
 
 logger = logging.getLogger(__name__)
 
 AuthMode = Literal["none", "cookie_bypass", "ui_login", "storage_state"]
+
+if TYPE_CHECKING:
+    from llm_common.agents.runtime.playwright_adapter import PlaywrightAdapter
+else:
+    PlaywrightAdapter = Any
+
 
 @dataclass
 class AuthConfig:
@@ -15,12 +20,15 @@ class AuthConfig:
     cookie_name: str | None = None
     cookie_value: str | None = None
     cookie_domain: str | None = None  # "auto" or explicit
+    cookie_signed: bool = False
+    cookie_secret_env: str | None = None
     # For ui_login
     email: str | None = None
     password: str | None = None
     login_path: str = "/sign-in"
     # For storage_state
     storage_state_path: str | None = None
+
 
 class AuthManager:
     """Manages authentication states and persona isolation for UISmoke."""
@@ -34,26 +42,64 @@ class AuthManager:
             return True
 
         if self.config.mode == "cookie_bypass":
-            if not self.config.cookie_name or not self.config.cookie_value:
-                logger.error("cookie_name and cookie_value required for cookie_bypass mode")
+            if not self.config.cookie_name:
+                logger.error("cookie_name required for cookie_bypass mode")
                 return False
+
+            cookie_value = self.config.cookie_value
+            if self.config.cookie_signed:
+                if not self.config.cookie_secret_env:
+                    logger.error("cookie_secret_env required when cookie_signed is True")
+                    return False
+
+                import os
+
+                secret = os.environ.get(self.config.cookie_secret_env)
+                if not secret:
+                    logger.error(f"Secret not found in env var: {self.config.cookie_secret_env}")
+                    return False
+
+                from llm_common.agents.token_utils import sign_token
+
+                # Payload JSON: { "sub": "test_admin", "role": "admin", "email": "...", "exp": <unix_ts> }
+                # We'll use the cookie_value as the sub/role prefix if it's 'admin' or 'user'
+                sub = f"test_{cookie_value}" if cookie_value else "test_user"
+                role = "admin" if cookie_value == "admin" else "user"
+
+                payload = {
+                    "sub": sub,
+                    "role": role,
+                    "email": f"{sub}@example.com",
+                    "exp": int(time.time()) + 7200,  # 2 hours TTL
+                }
+                cookie_value = sign_token(payload, secret)
+                logger.info(f"Generated signed bypass cookie for {sub} (TTL=2h)")
+            else:
+                if not cookie_value:
+                    logger.error("cookie_value required for unsigned cookie_bypass")
+                    return False
 
             # Set cookie via Playwright context
             domain = self.config.cookie_domain
             if domain == "auto":
                 from urllib.parse import urlparse
+
                 domain = urlparse(adapter.base_url).hostname
 
             cookie = {
                 "name": self.config.cookie_name,
-                "value": self.config.cookie_value,
+                "value": cookie_value,
                 "domain": domain or "",
                 "path": "/",
                 "secure": adapter.base_url.startswith("https"),
-                "sameSite": "Lax" if adapter.base_url.startswith("https") else "Lax",
+                "sameSite": "Lax",
             }
             await adapter.page.context.add_cookies([cookie])
-            logger.info(f"Set bypass cookie: {self.config.cookie_name} (domain={domain})")
+            # Redact high entropy cookie value in logs
+            display_val = f"{cookie_value[:6]}..." if self.config.cookie_signed else cookie_value
+            logger.info(
+                f"Set bypass cookie: {self.config.cookie_name}={display_val} (domain={domain})"
+            )
             return True
 
         if self.config.mode == "ui_login":
@@ -61,7 +107,9 @@ class AuthManager:
                 logger.error("email and password required for ui_login mode")
                 return False
 
-            logger.info(f"Performing UI login for {self.config.email} at {self.config.login_path}...")
+            logger.info(
+                f"Performing UI login for {self.config.email} at {self.config.login_path}..."
+            )
             try:
                 await adapter.navigate(self.config.login_path)
                 # Clerk-specific or Generic fallback
@@ -93,7 +141,9 @@ class AuthManager:
 
         return True
 
-    async def verify_auth(self, adapter: PlaywrightAdapter, dashboard_path: str = "/dashboard") -> bool:
+    async def verify_auth(
+        self, adapter: PlaywrightAdapter, dashboard_path: str = "/dashboard"
+    ) -> bool:
         """Verify that the current context has valid auth."""
         if self.config.mode == "none":
             return True
