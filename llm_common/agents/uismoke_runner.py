@@ -40,6 +40,8 @@ class UISmokeRunner:
         block_domains: list[str] | None = None,
         no_default_blocklist: bool = False,
         only_stories: list[str] | None = None,
+        deterministic_only: bool = False,
+        fail_on_classifications: list[str] | None = None,
     ):
         self.base_url = base_url
         self.stories_dir = stories_dir
@@ -57,6 +59,8 @@ class UISmokeRunner:
         self.block_domains = block_domains
         self.no_default_blocklist = no_default_blocklist
         self.only_stories = only_stories
+        self.deterministic_only = deterministic_only
+        self.fail_on_classifications = fail_on_classifications
         self.completed_ok = False
 
         # Per-run artifact setup
@@ -146,6 +150,7 @@ class UISmokeRunner:
                     (authed_browser, authed_context, authed_adapter),
                     (guest_browser, guest_context, guest_adapter),
                     auth_manager,
+                    deterministic_only=self.deterministic_only,
                 )
 
                 # Update shared adapters if they were initialized during the run
@@ -195,6 +200,14 @@ class UISmokeRunner:
         self._write_artifacts(report)
 
         success = all(r.status == "pass" for r in story_results)
+        
+        # Check for banned classifications
+        if self.fail_on_classifications:
+            for r in story_results:
+                if r.classification in self.fail_on_classifications:
+                    logger.error(f"❌ Run failed due to banned classification: {r.classification} in {r.story_id}")
+                    success = False
+
         self.completed_ok = True
         logger.info(f"UISmoke run complete. Success: {success}")
         return success
@@ -221,7 +234,14 @@ class UISmokeRunner:
         return "other_fail"
 
     async def _run_story_with_repro(
-        self, story, glm_client, suite_start_time, authed_shared, guest_shared, auth_manager
+        self,
+        story,
+        glm_client,
+        suite_start_time,
+        authed_shared,
+        guest_shared,
+        auth_manager,
+        deterministic_only: bool = False,
     ) -> dict[str, Any]:
         """Run a story up to N times if it fails."""
         results: list[StoryResult] = []
@@ -250,6 +270,7 @@ class UISmokeRunner:
                 (authed_browser, authed_context, authed_adapter),
                 (guest_browser, guest_context, guest_adapter),
                 auth_manager,
+                deterministic_only=deterministic_only,
             )
 
             # Update shared adapters if they were initialized
@@ -306,6 +327,7 @@ class UISmokeRunner:
         authed_shared,
         guest_shared,
         auth_manager,
+        deterministic_only: bool = False,
     ) -> dict[str, Any]:
         """Perform a single run attempt for a story."""
         authed_browser, authed_context, authed_adapter = authed_shared
@@ -496,7 +518,10 @@ class UISmokeRunner:
                 }
 
             try:
-                result = await asyncio.wait_for(agent.run_story(story), timeout=eff_timeout)
+                result = await asyncio.wait_for(
+                    agent.run_story(story, deterministic_only=deterministic_only),
+                    timeout=eff_timeout
+                )
 
                 # Forensics
                 forensics = {
@@ -674,6 +699,16 @@ def main():
     )
     run_parser.add_argument("--tracing", action="store_true", help="Enable Playwright tracing")
     run_parser.add_argument("--only-stories", nargs="+", help="Run only specific story IDs")
+    run_parser.add_argument(
+        "--deterministic-only",
+        action="store_true",
+        help="Skip steps that aren't deterministic (useful for harness validation)",
+    )
+    run_parser.add_argument(
+        "--fail-on-classifications",
+        nargs="+",
+        help="Classifications that should cause the run to fail even in QA mode",
+    )
 
     # New flags
     run_parser.add_argument(
@@ -750,6 +785,8 @@ def main():
             block_domains=args.block_domains,
             no_default_blocklist=args.no_default_blocklist,
             only_stories=args.only_stories,
+            deterministic_only=args.deterministic_only,
+            fail_on_classifications=args.fail_on_classifications,
         )
 
         all_passed = asyncio.run(runner.run())

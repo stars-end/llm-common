@@ -306,7 +306,7 @@ class UISmokeAgent:
                 return True
             raise
 
-    async def run_story(self, story: AgentStory) -> StoryResult:
+    async def run_story(self, story: AgentStory, deterministic_only: bool = False) -> StoryResult:
         """Run a full user story.
 
         Args:
@@ -330,7 +330,9 @@ class UISmokeAgent:
             logger.info(f"  Step: {step_id} - {description}")
 
             start_time = time.time()
-            step_result = await self._run_step(story.persona, step_id, step_data)
+            step_result = await self._run_step(
+                story.persona, step_id, step_data, deterministic_only=deterministic_only
+            )
             step_result.duration_ms = int((time.time() - start_time) * 1000)
 
             step_results.append(step_result)
@@ -340,12 +342,20 @@ class UISmokeAgent:
                 logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
 
-        status = "pass" if all(r.status == "pass" for r in step_results) else "fail"
+        # Story status: fail if any step fails, else pass if any pass, else skip
+        if any(r.status == "fail" for r in step_results):
+            status = "fail"
+        elif any(r.status == "pass" for r in step_results):
+            status = "pass"
+        else:
+            status = "skip"
         return StoryResult(
             story_id=story.id, status=status, step_results=step_results, errors=story_errors
         )
 
-    async def _run_step(self, persona: str, step_id: str, step_data: dict[str, Any]) -> StepResult:
+    async def _run_step(
+        self, persona: str, step_id: str, step_data: dict[str, Any], deterministic_only: bool = False
+    ) -> StepResult:
         """Run a single step of a story."""
         description = step_data.get("description", "")
         validation_criteria = step_data.get("validation_criteria", [])
@@ -399,7 +409,12 @@ class UISmokeAgent:
                 return StepResult(
                     step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
                 )
+
             # Not handled deterministically => fall through to LLM loop.
+
+        if deterministic_only:
+            logger.warning(f"  ⏭️ Step {step_id} is not deterministic; skipping.")
+            return StepResult(step_id=step_id, status="skip", actions_taken=actions_taken)
 
         for i in range(self.max_tool_iterations):
             # 1. Capture state

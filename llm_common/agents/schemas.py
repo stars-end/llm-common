@@ -124,7 +124,7 @@ class StepResult(BaseModel):
     """Result of a single story step."""
 
     step_id: str
-    status: str  # pass, fail
+    status: str  # pass, fail, skip
     actions_taken: list[dict[str, Any]] = Field(default_factory=list)
     errors: list[AgentError] = Field(default_factory=list)
     duration_ms: int = 0
@@ -134,7 +134,7 @@ class StoryResult(BaseModel):
     """Result of a complete story execution."""
 
     story_id: str
-    status: str  # pass, fail
+    status: str  # pass, fail, skip
     step_results: list[StepResult] = Field(default_factory=list)
     errors: list[AgentError] = Field(default_factory=list)
     classification: str | None = None  # reproducible_fail, flaky_inconclusive, etc.

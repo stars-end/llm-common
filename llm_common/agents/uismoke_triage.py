@@ -135,10 +135,14 @@ class UISmokeTriage:
                                 ):
                                     assertion_failure = True
 
-            is_bug = deterministic_failure or assertion_failure
+            # STRICT RULE: "Bug:" only if reproducible AND (deterministic OR assertion)
+            is_bug = classification.startswith("reproducible_") and (
+                deterministic_failure or assertion_failure
+            )
 
-            desc = f"Story: {story_id}\nClassification: {classification}\nLast URL: {last_url}\n"
-            desc += f"Deterministic: {deterministic_failure}\nAssertion: {assertion_failure}\n\n"
+            desc = f"Story: {story_id}\nClassification: {classification}\n"
+            desc += f"Reason: {'Deterministic Step Failure' if deterministic_failure else 'Assertion Failure' if assertion_failure else 'Non-deterministic/Unknown'}\n"
+            desc += f"Last URL: {last_url}\n"
             desc += "Errors:\n" + "\n".join(error_msgs[:5])
             desc += f"\n\nArtifacts: {stories_dir / story_id}"
 
