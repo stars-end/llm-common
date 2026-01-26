@@ -1,10 +1,5 @@
 
-from llm_common.agents.exceptions import (
-    ElementNotFoundError,
-    NavigationError,
-)
-
-
+from llm_common.agents.auth import AuthConfig, AuthManager
 from llm_common.agents.callbacks import (
     AgentCallbacks,
     ToolCallInfo,
@@ -15,6 +10,10 @@ from llm_common.agents.context_pointers import (
     ContextRelevanceSelector,
     FileContextPointerStore,
     format_selected_contexts,
+)
+from llm_common.agents.exceptions import (
+    ElementNotFoundError,
+    NavigationError,
 )
 from llm_common.agents.executor import AgenticExecutor, StreamEvent
 from llm_common.agents.message_history import Message, MessageHistory
@@ -64,7 +63,9 @@ from llm_common.agents.tools import (
     ToolResult,
 )
 from llm_common.agents.ui_smoke_agent import BrowserAdapter, UISmokeAgent
-from llm_common.agents.utils import load_story, load_stories_from_directory
+from llm_common.agents.uismoke_runner import UISmokeRunner
+from llm_common.agents.uismoke_runner import main as uismoke_main
+from llm_common.agents.utils import load_stories_from_directory, load_story
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient, StreamChunk
 
 __all__ = [
@@ -100,6 +101,11 @@ __all__ = [
     "BrowserAdapter",
     "load_story",
     "load_stories_from_directory",
+    # UISmoke V2
+    "UISmokeRunner",
+    "AuthConfig",
+    "AuthManager",
+    "uismoke_main",
     # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
