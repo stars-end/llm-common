@@ -84,7 +84,7 @@ class UISmokeTriage:
                  else:
                      # Generic not_run without suite_timeout -> harness regression
                      harness_regressions.append((res, "not_run"))
-            elif classification in ["suite_timeout", "timeout"]:
+            elif classification in ["suite_timeout", "timeout", "single_timeout", "reproducible_timeout"]:
                 capacity_issues.append(res)
 
         if not reproducible_fails and not flaky_issues and not capacity_issues and not harness_regressions:
