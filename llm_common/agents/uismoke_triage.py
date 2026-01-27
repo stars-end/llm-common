@@ -51,6 +51,9 @@ class UISmokeTriage:
         # Group by classification
         reproducible_fails = []
         flaky_issues = []
+        # Aggregate harness/env regressions (P1)
+        harness_regressions = []
+        # Aggregate capacity/timeout (P3)
         capacity_issues = []
 
         for res in results:
@@ -68,22 +71,31 @@ class UISmokeTriage:
 
             if classification.startswith("reproducible_"):
                 reproducible_fails.append((res, classification))
-            elif classification == "flaky_inconclusive":
+            elif classification in ["flaky_inconclusive", "flaky_recovered"]:
                 flaky_issues.append(res)
-            elif classification in ["suite_timeout", "timeout", "not_run"]:
+            elif classification in ["auth_failed", "navigation_failed", "clerk_failed"]:
+                harness_regressions.append((res, classification))
+            elif classification == "not_run":
+                 # Check if it was suite timeout or something else
+                 if any(e.type == "suite_timeout" for e in res.errors):
+                     capacity_issues.append(res)
+                 elif any(e.type == "auth_failed" for e in res.errors):
+                     harness_regressions.append((res, "auth_failed"))
+                 else:
+                     # Generic not_run without suite_timeout -> harness regression
+                     harness_regressions.append((res, "not_run"))
+            elif classification in ["suite_timeout", "timeout"]:
                 capacity_issues.append(res)
 
-        if not reproducible_fails and not flaky_issues and not capacity_issues:
+        if not reproducible_fails and not flaky_issues and not capacity_issues and not harness_regressions:
             logger.info("No failures to triage. Skipping Beads issue creation.")
+            # ... (empty plan) ...
             empty_plan = {
                 "epic": {"title": epic_title, "description": "No issues detected."},
                 "subtasks": [],
             }
             with open(self.run_dir / "beads_plan.json", "w") as f:
                 json.dump(empty_plan, f, indent=2)
-            if self.dry_run:
-                print("\n=== BEADS TRIAGE PLAN (DRY RUN) ===")
-                print("No issues detected.\n")
             return
 
         plan = {
@@ -94,7 +106,19 @@ class UISmokeTriage:
             "subtasks": [],
         }
 
-        # 1 subtask per reproducible fail
+        # 1. Harness/Env Regressions (P1)
+        if harness_regressions:
+            desc = "Stories failed due to Harness/Env Regression (Auth, Navigation, Clerk, or Not Run):\n"
+            desc += "\n".join([f"- {r[0].get('story_id')} ({r[1]})" for r in harness_regressions])
+            plan["subtasks"].append(
+                {
+                    "title": "Aggregate: Harness/Env Regressions (P1)",
+                    "description": desc,
+                    "priority": 1,
+                }
+            )
+
+        # 2. Product Bugs (P2/P3)
         for res, classification in reproducible_fails:
             story_id = res.get("story_id")
 
@@ -114,7 +138,6 @@ class UISmokeTriage:
                     error_msgs = (forensics.get("console_errors") or []) + (
                         forensics.get("network_errors") or []
                     )
-                    # classification in forensics might be different from summary? No, should match.
 
             if summary_path.exists():
                 with open(summary_path) as f:
@@ -145,6 +168,12 @@ class UISmokeTriage:
             is_bug = classification.startswith("reproducible_") and (
                 deterministic_failure or assertion_failure
             )
+            # Or if it's strictly classified as a verification failure type
+            if "strict_verification_failed" in classification:
+                 is_bug = True
+
+            # Default to Triage if we can't be sure
+            prefix = "Bug" if is_bug else "Triage"
 
             desc = f"Story: {story_id}\nClassification: {classification}\n"
             desc += f"Reason: {'Deterministic Step Failure' if deterministic_failure else 'Assertion Failure' if assertion_failure else 'Non-deterministic/Unknown'}\n"
@@ -154,25 +183,28 @@ class UISmokeTriage:
 
             plan["subtasks"].append(
                 {
-                    "title": f"{'Bug' if is_bug else 'Triage'}: {story_id} ({classification})",
+                    "title": f"{prefix}: {story_id} ({classification})",
                     "description": desc,
                     "priority": 2 if is_bug else 3,
                 }
             )
 
-        # Aggregate flaky
+        # 3. Flaky Issues (P3 - wait, user said "harness instability")
+        # Let's keep P3 but maybe note it. USER SAID: "verify-nightly exits non-zero on flaky_recovered (since flakes are harness regressions)"
+        # So flakes are harness regressions -> P2? P1?
+        # Let's bump to P2 for flakes.
         if flaky_issues:
             desc = "Stories that failed once but passed on rerun or had inconsistent errors:\n"
             desc += "\n".join([f"- {r.get('story_id')}" for r in flaky_issues])
             plan["subtasks"].append(
                 {
-                    "title": "Aggregate: Flaky/Inconclusive UI Stories",
+                    "title": "Aggregate: Flaky/Inconclusive (Harness Instability)",
                     "description": desc,
-                    "priority": 3,
+                    "priority": 2,
                 }
             )
 
-        # Aggregate capacity/config
+        # 4. Capacity (P3)
         if capacity_issues:
             desc = "Stories that timed out or were not run due to suite limits:\n"
             desc += "\n".join([f"- {r.get('story_id')}" for r in capacity_issues])
