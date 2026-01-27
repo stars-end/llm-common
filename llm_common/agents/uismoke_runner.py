@@ -214,20 +214,23 @@ class UISmokeRunner:
 
         self._write_artifacts(report)
 
-        if self.deterministic_only:
-            # Deterministic-only runs treat fully-skipped stories as OK; they validate only the
-            # deterministic harness surface area.
-            success = all(r.status in {"pass", "skip"} for r in story_results)
-        else:
-            success = all(r.status == "pass" for r in story_results)
-        
-        # Check for banned classifications
         if self.fail_on_classifications:
+            # If explicit failure classifications are provided, fail ONLY if one of them is hit.
+            # This allows treating product bugs as warnings (e.g. for nightly runs).
+            success = True
             for r in story_results:
                 if r.classification in self.fail_on_classifications:
                     logger.error(f"❌ Run failed due to banned classification: {r.classification} in {r.story_id}")
                     success = False
                     self.banned_classification_hit = True
+        else:
+            # Default strict mode: all must pass
+            if self.deterministic_only:
+                # Deterministic-only runs treat fully-skipped stories as OK; they validate only the
+                # deterministic harness surface area.
+                success = all(r.status in {"pass", "skip"} for r in story_results)
+            else:
+                success = all(r.status == "pass" for r in story_results)
 
         self.completed_ok = True
         logger.info(f"UISmoke run complete. Success: {success}")
@@ -239,11 +242,28 @@ class UISmokeRunner:
             return None
         if result.status == "skip":
             return "skip"
+        
+        # [NEW] Status-driven classification
+        if result.status == "timeout":
+            return "timeout"
+            
+        if result.status == "not_run":
+            for err in result.errors:
+                if err.type == "suite_timeout":
+                    return "suite_timeout"
+                if err.type == "auth_failed":
+                    return "auth_failed"
+            return "not_run"
 
+        # [EXISTING] Substring heuristics for failures (status=fail)
         all_errors = result.errors
         msg_blob = " ".join([e.message.lower() for e in all_errors])
 
-        if "timeout" in msg_blob:
+        if "timeout" in msg_blob: # Keep this as fallback? Or maybe only for actual status? 
+            # If status is fail but msg says timeout, it might be a partial timeout or caught timeout.
+            # But the requirement says: "if result.status == "timeout" => return "timeout"". 
+            # It also says "keep existing substring heuristics for navigation_failed/clerk_failed...".
+            # The prompt implies for OTHER statuses (like fail), keep using heuristics.
             return "timeout"
         if "clerk" in msg_blob:
             return "clerk_failed"
