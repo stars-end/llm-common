@@ -259,9 +259,9 @@ class UISmokeRunner:
         all_errors = result.errors
         msg_blob = " ".join([e.message.lower() for e in all_errors])
 
-        if "timeout" in msg_blob: # Keep this as fallback? Or maybe only for actual status? 
+        if "timeout" in msg_blob or "timed out" in msg_blob: # Keep this as fallback? Or maybe only for actual status?
             # If status is fail but msg says timeout, it might be a partial timeout or caught timeout.
-            # But the requirement says: "if result.status == "timeout" => return "timeout"". 
+            # But the requirement says: "if result.status == "timeout" => return "timeout"".
             # It also says "keep existing substring heuristics for navigation_failed/clerk_failed...".
             # The prompt implies for OTHER statuses (like fail), keep using heuristics.
             return "timeout"
