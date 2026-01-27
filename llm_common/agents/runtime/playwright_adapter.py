@@ -219,6 +219,57 @@ class PlaywrightAdapter:
     async def close(self) -> None:
         await self.page.close()
 
+    async def frame_click(self, frame_selector: str, target: str) -> None:
+        """Click inside an iframe."""
+        logger.info(f"Clicking inside frame '{frame_selector}' target '{target}'")
+        async def _do_click():
+            frame_loc = self.page.frame_locator(frame_selector)
+            # Try specific selector or text
+            if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
+                sel = f"text={target}"
+            else:
+                sel = target
+            await frame_loc.locator(sel).click(timeout=self.action_timeout_ms, force=True)
+
+        try:
+            await self._retry_action(f"frame_click({frame_selector}, {target})", _do_click)
+        except Exception as e:
+            from llm_common.agents.exceptions import ElementNotFoundError
+            raise ElementNotFoundError(f"Frame click failed for {target} in {frame_selector}: {e}")
+
+    async def frame_type_text(self, frame_selector: str, selector: str, text: str) -> None:
+        """Type text inside an iframe."""
+        logger.info(f"Typing inside frame '{frame_selector}' at '{selector}'")
+        async def _do_type():
+            frame_loc = self.page.frame_locator(frame_selector)
+            locator = frame_loc.locator(selector)
+            await locator.wait_for(state="visible", timeout=self.action_timeout_ms)
+            await locator.click(timeout=self.action_timeout_ms, force=True)
+            # Cannot use keyboard.press on frame locator easily in all versions, 
+            # but locator.press works.
+            # However, to be robust: select all + delete
+            await locator.focus()
+            await locator.press("Control+A")
+            await locator.press("Meta+A")
+            await locator.press("Backspace")
+            await locator.type(text)
+
+        try:
+            await self._retry_action(f"frame_type_text({frame_selector}, {selector})", _do_type)
+        except Exception as e:
+            from llm_common.agents.exceptions import ElementNotFoundError
+            raise ElementNotFoundError(f"Frame type failed for {selector} in {frame_selector}: {e}")
+
+    async def frame_wait_for_selector(self, frame_selector: str, selector: str, timeout_ms: int = 10000) -> None:
+        """Wait for selector inside iframe."""
+        logger.info(f"Waiting for '{selector}' inside frame '{frame_selector}'")
+        try:
+            frame_loc = self.page.frame_locator(frame_selector)
+            await frame_loc.locator(selector).wait_for(state="visible", timeout=timeout_ms)
+        except Exception as e:
+            from llm_common.agents.exceptions import ElementNotFoundError
+            raise ElementNotFoundError(f"Wait failed for {selector} in {frame_selector}: {e}")
+
 
 async def create_playwright_context(
     base_url: str,

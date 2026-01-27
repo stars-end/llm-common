@@ -40,6 +40,7 @@ class UISmokeRunner:
         block_domains: list[str] | None = None,
         no_default_blocklist: bool = False,
         only_stories: list[str] | None = None,
+        exclude_stories: list[str] | None = None,
         deterministic_only: bool = False,
         fail_on_classifications: list[str] | None = None,
     ):
@@ -59,6 +60,7 @@ class UISmokeRunner:
         self.block_domains = block_domains
         self.no_default_blocklist = no_default_blocklist
         self.only_stories = only_stories
+        self.exclude_stories = exclude_stories
         self.deterministic_only = deterministic_only
         self.fail_on_classifications = fail_on_classifications
         self.completed_ok = False
@@ -88,6 +90,18 @@ class UISmokeRunner:
 
             if not stories:
                 logger.error(f"No stories matched filter: {self.only_stories}")
+                return False
+
+        # Filter if exclude_stories is provided
+        if self.exclude_stories:
+            original_count = len(stories)
+            stories = [s for s in stories if s.id not in self.exclude_stories]
+            logger.info(
+                f"Excluding stories: {len(stories)}/{original_count} kept (excluded: {self.exclude_stories})"
+            )
+            
+            if not stories:
+                logger.error("No stories left after exclusion")
                 return False
 
         logger.info(f"🚀 Starting UISmoke run {self.run_id} with {len(stories)} stories")
@@ -603,6 +617,8 @@ class UISmokeRunner:
         last_res = results[-1]
 
         if last_res.status == "pass":
+            if len(results) > 1:
+                return "flaky_recovered"
             return "pass"
         if last_res.status == "skip":
             return "skip"
@@ -628,8 +644,11 @@ class UISmokeRunner:
 
         if freq >= 2:
             return f"reproducible_{most_common}"
+        
+        if len(results) > 1:
+            return "flaky_inconclusive"
 
-        return "flaky_inconclusive"
+        return f"single_{most_common}"
 
     def _write_artifacts(self, report: SmokeRunReport):
         """Write run.json and run.md."""
@@ -715,6 +734,7 @@ def main():
     )
     run_parser.add_argument("--tracing", action="store_true", help="Enable Playwright tracing")
     run_parser.add_argument("--only-stories", nargs="+", help="Run only specific story IDs")
+    run_parser.add_argument("--exclude-stories", nargs="+", help="Exclude specific story IDs")
     run_parser.add_argument(
         "--deterministic-only",
         action="store_true",
@@ -793,6 +813,9 @@ def main():
             repro_n=args.repro,
             headless=args.headless,
             tracing=args.tracing,
+            only_stories=args.only_stories,
+            exclude_stories=args.exclude_stories,
+            deterministic_only=args.deterministic_only,
             suite_timeout=args.suite_timeout,
             story_timeout=args.story_timeout,
             max_tool_iterations=args.max_tool_iterations,
@@ -800,8 +823,6 @@ def main():
             action_timeout_ms=args.action_timeout_ms,
             block_domains=args.block_domains,
             no_default_blocklist=args.no_default_blocklist,
-            only_stories=args.only_stories,
-            deterministic_only=args.deterministic_only,
             fail_on_classifications=args.fail_on_classifications,
         )
 

@@ -138,6 +138,15 @@ class BrowserAdapter(Protocol):
     async def close(self) -> None:
         ...
 
+    async def frame_click(self, frame_selector: str, target: str) -> None:
+        ...
+
+    async def frame_type_text(self, frame_selector: str, selector: str, text: str) -> None:
+        ...
+
+    async def frame_wait_for_selector(self, frame_selector: str, selector: str, timeout_ms: int = 5000) -> None:
+        ...
+
 
 class UISmokeAgent:
     """Agent that executes UI smoke tests using vision + tool calling."""
@@ -236,19 +245,47 @@ class UISmokeAgent:
             )
             return True
 
+        if "frame_click" in step_data:
+            fdata = step_data["frame_click"]
+            frame = self._substitute_vars(fdata.get("frame") or "")
+            target = self._substitute_vars(fdata.get("target") or "")
+            logger.info(f"  ⚡ Deterministic Frame Click: frame={self._redact_secrets(frame)}, target={self._redact_secrets(target)}")
+            await self.browser.frame_click(frame, _sanitize_selector(target))
+            _record("frame_click", {"frame": self._redact_secrets(frame), "target": self._redact_secrets(target)})
+            return True
+
+        if "frame_type" in step_data:
+            fdata = step_data["frame_type"]
+            frame = self._substitute_vars(fdata.get("frame") or "")
+            selector = self._substitute_vars(fdata.get("selector") or "")
+            text = self._substitute_vars(fdata.get("text") or "")
+            logger.info(f"  ⚡ Deterministic Frame Type: frame={self._redact_secrets(frame)}, selector={self._redact_secrets(selector)}")
+            await self.browser.frame_type_text(frame, _sanitize_selector(selector), text)
+            _record("frame_type_text", {"frame": self._redact_secrets(frame), "selector": self._redact_secrets(selector), "text": "[REDACTED]"})
+            return True
+
         # 2) Action form
         action = step_data.get("action")
         if not action:
             return False
-
+            
         action = str(action).strip()
         timeout_ms = int(step_data.get("timeout", 10000))
         selector = step_data.get("selector")
         target = step_data.get("target")
         text = step_data.get("text")
         path = step_data.get("path")
+        frame = step_data.get("frame")
 
         try:
+            if action == "frame_wait_for_selector":
+                f_sel = self._substitute_vars(frame or "")
+                sel = self._substitute_vars(selector or target or "")
+                logger.info(f"  ⚡ Deterministic Frame Wait: frame={self._redact_secrets(f_sel)} selector={self._redact_secrets(sel)}")
+                await self.browser.frame_wait_for_selector(f_sel, _sanitize_selector(sel), timeout_ms=timeout_ms)
+                _record("frame_wait_for_selector", {"frame": self._redact_secrets(f_sel), "selector": self._redact_secrets(sel)})
+                return True
+
             if action in {"navigate", "goto"}:
                 raw_nav = path or target or selector or "/"
                 logger.info(f"  ⚡ Deterministic Navigate: {self._redact_secrets(raw_nav)}")
@@ -371,7 +408,7 @@ class UISmokeAgent:
         # For LLM-driven steps we keep placeholders to avoid leaking secrets into logs/prompts.
 
         # llm-uismoke-qa-loop.2: Deterministic Step Execution
-        if any(k in step_data for k in ["action", "click", "navigate", "type"]):
+        if any(k in step_data for k in ["action", "click", "navigate", "type", "frame_click", "frame_type"]):
             logger.info(f"  ⚡ Attempting deterministic step: {step_id}")
             try:
                 handled = await self._execute_deterministic_step(step_data, actions_taken)
