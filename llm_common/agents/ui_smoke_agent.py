@@ -270,7 +270,7 @@ class UISmokeAgent:
             return False
             
         action = str(action).strip()
-        timeout_ms = int(step_data.get("timeout", 10000))
+        timeout_ms = int(step_data.get("timeout", 30000))
         selector = step_data.get("selector")
         target = step_data.get("target")
         text = step_data.get("text")
