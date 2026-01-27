@@ -28,11 +28,13 @@ def _normalize_story_data(data: dict[str, Any]) -> dict[str, Any]:
         steps = []
         for i, goal in enumerate(goals):
             if isinstance(goal, str):
-                steps.append({
-                    "id": f"step-{i + 1}",
-                    "description": goal,
-                    "validation_criteria": [],
-                })
+                steps.append(
+                    {
+                        "id": f"step-{i + 1}",
+                        "description": goal,
+                        "validation_criteria": [],
+                    }
+                )
             elif isinstance(goal, dict):
                 if "id" not in goal:
                     goal = {**goal, "id": f"step-{i + 1}"}

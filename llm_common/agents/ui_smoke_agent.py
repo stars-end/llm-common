@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -10,6 +11,12 @@ from llm_common.agents.schemas import AgentError, AgentStory, StepResult, StoryR
 from llm_common.core import LLMClient, LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_error(error: AgentError) -> AgentError:
+    """Redact secrets in error messages."""
+    error.message = re.sub(r"\{\{ENV:[A-Za-z0-9_]+\}\}", "[REDACTED]", error.message)
+    return error
 
 
 def _sanitize_selector(selector: str) -> str:
@@ -122,10 +129,22 @@ class BrowserAdapter(Protocol):
     async def wait_for_selector(self, selector: str, timeout_ms: int = 5000) -> None:
         ...
 
-    async def get_current_url(self) -> str:
+    async def get_content(self) -> str:
+        ...
+
+    async def get_text(self, selector: str) -> str:
         ...
 
     async def close(self) -> None:
+        ...
+
+    async def frame_click(self, frame_selector: str, target: str) -> None:
+        ...
+
+    async def frame_type_text(self, frame_selector: str, selector: str, text: str) -> None:
+        ...
+
+    async def frame_wait_for_selector(self, frame_selector: str, selector: str, timeout_ms: int = 5000) -> None:
         ...
 
 
@@ -158,7 +177,177 @@ class UISmokeAgent:
         if self.evidence_dir:
             self.evidence_dir.mkdir(parents=True, exist_ok=True)
 
-    async def run_story(self, story: AgentStory) -> StoryResult:
+    def _substitute_vars(self, text: str) -> str:
+        """Substitute {{ENV:VAR_NAME}} from environment."""
+        if not isinstance(text, str):
+            return text
+
+        def replacer(match):
+            var_name = match.group(1)
+            val = os.environ.get(var_name)
+            if val is None:
+                raise ValueError(f"Missing environment variable: {var_name}")
+            return val
+
+        try:
+            return re.sub(r"\{\{ENV:([A-Za-z0-9_]+)\}\}", replacer, text)
+        except ValueError as e:
+            # We'll handle this in higher level
+            raise e
+
+    def _redact_secrets(self, text: str) -> str:
+        """Redact {{ENV:VAR_NAME}} patterns from logs/artifacts."""
+        if not isinstance(text, str):
+            return text
+        return re.sub(r"\{\{ENV:[A-Za-z0-9_]+\}\}", "[REDACTED]", text)
+
+    async def _execute_deterministic_step(
+        self, step_data: dict[str, Any], actions_taken: list[dict[str, Any]]
+    ) -> bool:
+        """Execute structured steps deterministically (no LLM).
+
+        Supports both:
+        - Keyed form: {"navigate": "/path"}, {"click": "#id"}, {"type": "text", "selector": "#id"}
+        - Action form: {"action": "wait_for_selector", "selector": "...", "timeout": 10000, "optional": true}
+        """
+        optional = bool(step_data.get("optional", False))
+
+        def _record(tool: str, args: dict[str, Any]) -> None:
+            actions_taken.append(
+                {"tool": tool, "args": args, "deterministic": True, "optional": optional}
+            )
+
+        # 1) Keyed form
+        if "navigate" in step_data:
+            raw_path = step_data["navigate"]
+            logger.info(f"  ⚡ Deterministic Navigate: {self._redact_secrets(raw_path)}")
+            path = self._substitute_vars(raw_path)
+            await self.browser.navigate(path)
+            _record("navigate", {"path": self._redact_secrets(path)})
+            return True
+
+        if "click" in step_data:
+            raw_target = step_data["click"]
+            logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_target)}")
+            target = self._substitute_vars(raw_target)
+            await self.browser.click(_sanitize_selector(target))
+            _record("click", {"target": self._redact_secrets(target)})
+            return True
+
+        if "type" in step_data:
+            selector = self._substitute_vars(step_data.get("selector") or "")
+            text = self._substitute_vars(step_data["type"])
+            logger.info(f"  ⚡ Deterministic Type into {self._redact_secrets(selector)}")
+            await self.browser.type_text(_sanitize_selector(selector), text)
+            _record(
+                "type_text",
+                {"selector": self._redact_secrets(selector), "text": "[REDACTED]"},
+            )
+            return True
+
+        if "frame_click" in step_data:
+            fdata = step_data["frame_click"]
+            frame = self._substitute_vars(fdata.get("frame") or "")
+            target = self._substitute_vars(fdata.get("target") or "")
+            logger.info(f"  ⚡ Deterministic Frame Click: frame={self._redact_secrets(frame)}, target={self._redact_secrets(target)}")
+            await self.browser.frame_click(frame, _sanitize_selector(target))
+            _record("frame_click", {"frame": self._redact_secrets(frame), "target": self._redact_secrets(target)})
+            return True
+
+        if "frame_type" in step_data:
+            fdata = step_data["frame_type"]
+            frame = self._substitute_vars(fdata.get("frame") or "")
+            selector = self._substitute_vars(fdata.get("selector") or "")
+            text = self._substitute_vars(fdata.get("text") or "")
+            logger.info(f"  ⚡ Deterministic Frame Type: frame={self._redact_secrets(frame)}, selector={self._redact_secrets(selector)}")
+            await self.browser.frame_type_text(frame, _sanitize_selector(selector), text)
+            _record("frame_type_text", {"frame": self._redact_secrets(frame), "selector": self._redact_secrets(selector), "text": "[REDACTED]"})
+            return True
+
+        # 2) Action form
+        action = step_data.get("action")
+        if not action:
+            return False
+            
+        action = str(action).strip()
+        timeout_ms = int(step_data.get("timeout", 10000))
+        selector = step_data.get("selector")
+        target = step_data.get("target")
+        text = step_data.get("text")
+        path = step_data.get("path")
+        frame = step_data.get("frame")
+
+        try:
+            if action == "frame_wait_for_selector":
+                f_sel = self._substitute_vars(frame or "")
+                sel = self._substitute_vars(selector or target or "")
+                logger.info(f"  ⚡ Deterministic Frame Wait: frame={self._redact_secrets(f_sel)} selector={self._redact_secrets(sel)}")
+                await self.browser.frame_wait_for_selector(f_sel, _sanitize_selector(sel), timeout_ms=timeout_ms)
+                _record("frame_wait_for_selector", {"frame": self._redact_secrets(f_sel), "selector": self._redact_secrets(sel)})
+                return True
+
+            if action in {"navigate", "goto"}:
+                raw_nav = path or target or selector or "/"
+                logger.info(f"  ⚡ Deterministic Navigate: {self._redact_secrets(raw_nav)}")
+                nav = self._substitute_vars(raw_nav)
+                await self.browser.navigate(nav)
+                _record("navigate", {"path": self._redact_secrets(nav)})
+                return True
+
+            if action == "click":
+                raw_click_target = target or selector or ""
+                logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_click_target)}")
+                click_target = self._substitute_vars(raw_click_target)
+                await self.browser.click(_sanitize_selector(click_target))
+                _record("click", {"target": self._redact_secrets(click_target)})
+                return True
+
+            if action in {"type", "type_text", "fill"}:
+                sel = self._substitute_vars(selector or "")
+                val = self._substitute_vars(text or step_data.get("value") or "")
+                logger.info(f"  ⚡ Deterministic Type into {self._redact_secrets(sel)}")
+                await self.browser.type_text(_sanitize_selector(sel), val)
+                _record("type_text", {"selector": self._redact_secrets(sel), "text": "[REDACTED]"})
+                return True
+
+            if action in {"wait_for_selector", "check_element", "assert_visible"}:
+                sel = self._substitute_vars(selector or target or "")
+                logger.info(f"  ⚡ Deterministic Wait: {self._redact_secrets(sel)}")
+                await self.browser.wait_for_selector(_sanitize_selector(sel), timeout_ms=timeout_ms)
+                _record(
+                    "wait_for_selector",
+                    {"selector": self._redact_secrets(sel), "timeout_ms": timeout_ms},
+                )
+                return True
+
+            if action == "assert_text":
+                sel = self._substitute_vars(selector or target or "body")
+                required = self._substitute_vars(text or step_data.get("value") or "")
+                logger.info(f"  ⚡ Deterministic Assert Text in {self._redact_secrets(sel)}: {self._redact_secrets(required)}")
+
+                if sel == "body":
+                    content = await self.browser.get_content()
+                else:
+                    content = await self.browser.get_text(_sanitize_selector(sel))
+
+                if required not in content:
+                    raise ValueError(f"Expected text not found in {sel}: {required}")
+                _record(
+                    "assert_text",
+                    {"selector": self._redact_secrets(sel), "text": self._redact_secrets(required)},
+                )
+                return True
+
+            # Unhandled action => let LLM handle it.
+            return False
+        except Exception:
+            if optional:
+                logger.info("  ⚠️ Optional deterministic step failed; continuing.")
+                _record("optional_step_failed", {"action": action})
+                return True
+            raise
+
+    async def run_story(self, story: AgentStory, deterministic_only: bool = False) -> StoryResult:
         """Run a full user story.
 
         Args:
@@ -179,12 +368,11 @@ class UISmokeAgent:
         for step_data in story.steps:
             step_id = step_data.get("id", "unknown")
             description = step_data.get("description", "")
-            validation_criteria = step_data.get("validation_criteria", [])
-            logger.info(f"  Step: {step_id} - {description}")
+            logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
 
             start_time = time.time()
             step_result = await self._run_step(
-                story.persona, step_id, description, validation_criteria
+                story.persona, step_id, step_data, deterministic_only=deterministic_only
             )
             step_result.duration_ms = int((time.time() - start_time) * 1000)
 
@@ -195,17 +383,76 @@ class UISmokeAgent:
                 logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
 
-        status = "pass" if all(r.status == "pass" for r in step_results) else "fail"
+        # Story status: fail if any step fails, else pass if any pass, else skip
+        if any(r.status == "fail" for r in step_results):
+            status = "fail"
+        elif any(r.status == "pass" for r in step_results):
+            status = "pass"
+        else:
+            status = "skip"
         return StoryResult(
             story_id=story.id, status=status, step_results=step_results, errors=story_errors
         )
 
     async def _run_step(
-        self, persona: str, step_id: str, description: str, validation_criteria: list[str] = None
+        self, persona: str, step_id: str, step_data: dict[str, Any], deterministic_only: bool = False
     ) -> StepResult:
         """Run a single step of a story."""
+        description = step_data.get("description", "")
+        validation_criteria = step_data.get("validation_criteria", [])
+
         actions_taken = []
         errors = []
+
+        # Variable substitution is allowed for deterministic steps only.
+        # For LLM-driven steps we keep placeholders to avoid leaking secrets into logs/prompts.
+
+        # llm-uismoke-qa-loop.2: Deterministic Step Execution
+        if any(k in step_data for k in ["action", "click", "navigate", "type", "frame_click", "frame_type"]):
+            logger.info(f"  ⚡ Attempting deterministic step: {step_id}")
+            try:
+                handled = await self._execute_deterministic_step(step_data, actions_taken)
+                if handled:
+                    # Final validation
+                    current_url = await self.browser.get_current_url()
+                    final_screenshot = await self.browser.screenshot()
+                    verified = await self._verify_completion(final_screenshot, validation_criteria)
+                    if verified:
+                        return StepResult(
+                            step_id=step_id,
+                            status="pass",
+                            actions_taken=actions_taken,
+                            errors=errors,
+                        )
+                    errors.append(
+                        AgentError(
+                            type="verification_error",
+                            severity="high",
+                            message="Deterministic step verification failed",
+                            url=current_url,
+                        )
+                    )
+                    return StepResult(
+                        step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+                    )
+            except ValueError as e:
+                logger.error(f"  ❌ Deterministic variable substitution failed: {e}")
+                errors.append(AgentError(type="missing_env", severity="blocker", message=str(e)))
+                return StepResult(
+                    step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+                )
+            except Exception as e:
+                logger.error(f"  ❌ Deterministic execution failed: {e}")
+                errors.append(AgentError(type="ui_error", severity="medium", message=str(e)))
+                return StepResult(
+                    step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+                )
+
+            # Not handled deterministically => fall through to LLM loop.
+
+        if deterministic_only:
+            logger.warning(f"  ⏭️ Step {step_id} is not deterministic; skipping.")
+            return StepResult(step_id=step_id, status="skip", actions_taken=actions_taken)
 
         for i in range(self.max_tool_iterations):
             # 1. Capture state
@@ -258,7 +505,16 @@ class UISmokeAgent:
                     logger.warning(f"Failed to save debug evidence: {e}")
 
             # 2. Build prompt
-            prompt = f"Step: {description}\nCurrent URL: {current_url}\nGoal: Complete the step described above."
+            # For LLM steps, we do NOT substitute variables to avoid leaking secrets.
+            # We keep the raw description which may contain {{ENV:...}}.
+            # If the user put secrets in description without {{ENV:...}}, that's on them.
+            # We explicitly redact any known {{ENV:...}} patterns if they are not meant for LLM.
+            # But here, we just want to ensure we don't accidentally reveal the VALUE.
+            
+            prompt = (
+                f"Step: {self._redact_secrets(description)}\nCurrent URL: {current_url}\n"
+                "Goal: Complete the step described above."
+            )
 
             validation_msg = ""
             if validation_criteria:
@@ -413,7 +669,11 @@ class UISmokeAgent:
                 except Exception:
                     args = {}
 
-                actions_taken.append({"tool": name, "args": args})
+                # Redact text in actions_taken for tools that handle sensitive input
+                log_args = dict(args)
+                if name == "type_text" and "text" in log_args:
+                    log_args["text"] = "[REDACTED]"
+                actions_taken.append({"tool": name, "args": log_args})
 
                 if name == "complete_step":
                     logger.info(

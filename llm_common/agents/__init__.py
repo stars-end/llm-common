@@ -1,10 +1,4 @@
-
-from llm_common.agents.exceptions import (
-    ElementNotFoundError,
-    NavigationError,
-)
-
-
+from llm_common.agents.auth import AuthConfig, AuthManager
 from llm_common.agents.callbacks import (
     AgentCallbacks,
     ToolCallInfo,
@@ -15,6 +9,10 @@ from llm_common.agents.context_pointers import (
     ContextRelevanceSelector,
     FileContextPointerStore,
     format_selected_contexts,
+)
+from llm_common.agents.exceptions import (
+    ElementNotFoundError,
+    NavigationError,
 )
 from llm_common.agents.executor import AgenticExecutor, StreamEvent
 from llm_common.agents.message_history import Message, MessageHistory
@@ -64,13 +62,12 @@ from llm_common.agents.tools import (
     ToolResult,
 )
 from llm_common.agents.ui_smoke_agent import BrowserAdapter, UISmokeAgent
-from llm_common.agents.utils import load_story, load_stories_from_directory
+from llm_common.agents.utils import load_stories_from_directory, load_story
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient, StreamChunk
 
 __all__ = [
     "ElementNotFoundError",
     "NavigationError",
-
     # Message History
     "Message",
     "MessageHistory",
@@ -100,6 +97,8 @@ __all__ = [
     "BrowserAdapter",
     "load_story",
     "load_stories_from_directory",
+    "AuthConfig",
+    "AuthManager",
     # Provider utilities
     "GLMConfig",
     "GLMVisionClient",
@@ -131,3 +130,19 @@ __all__ = [
     "IterativeOrchestrator",
     "OrchestratorResult",
 ]
+
+
+def __getattr__(name: str):
+    if name in {"UISmokeRunner", "uismoke_main"}:
+        try:
+            from llm_common.agents.uismoke_runner import UISmokeRunner
+            from llm_common.agents.uismoke_runner import main as uismoke_main
+        except ImportError as e:
+            raise ImportError(
+                "UISmokeRunner requires the optional Playwright dependency. "
+                "Install Playwright (and browsers) in the consuming environment to use uismoke."
+            ) from e
+
+        return {"UISmokeRunner": UISmokeRunner, "uismoke_main": uismoke_main}[name]
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

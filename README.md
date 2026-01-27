@@ -10,6 +10,7 @@ Shared LLM framework for affordabot and prime-radiant-ai.
 - **Structured Outputs**: Built-in support for instructor and Pydantic models
 - **Cost Tracking**: Per-request cost monitoring and budget alerts
 - **Retry Logic**: Exponential backoff with jitter for reliability
+- **Verification**: UISmoke Universal Runner for cross-repo automated story testing
 - **Type Safety**: Full mypy strict mode compliance
 
 ## Installation
@@ -126,6 +127,25 @@ analysis = await client.chat.completions.create(
     messages=[{"role": "user", "content": "Analyze this bill..."}]
 )
 ```
+
+### UISmoke (Automated Verification)
+
+UISmoke is a shared QA-engineer harness for executing autonomous UI stories using vision models.
+
+```bash
+# Run stories against a target URL
+uismoke run --stories ./docs/TESTING/STORIES --base-url https://dev.example.ai --output ./artifacts/verification
+```
+
+Features:
+### QA mode vs Gate mode
+- `--mode qa`: Exit 0 if the harness completed and produced artifacts, even if product failures occurred. Use this for discovery/nightly runs where you want to triage all results. Exit 1 only on harness crash or misconfiguration.
+- `--mode gate`: Exit 1 if any story does not pass. Use this for CI/PR gates where zero regressions are required.
+
+### Triage Behavior (Hardened)
+The triage tool (`uismoke triage`) classifies failures to minimize noise:
+- **Bug**: Created only for reproducible failures where either the failure occurred in a deterministic step (`wait_for_selector`, `click`, etc.) or it's a specific assertion-type error (`verification_error`, `assert_text`, `403_forbidden`).
+- **Triage**: Created for all other failures (timeouts, unknown flaky issues, harness errors).
 
 ## Architecture
 

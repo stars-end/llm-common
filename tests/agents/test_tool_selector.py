@@ -60,9 +60,7 @@ async def test_tool_selector_uses_fallback_model_on_network_error(
 
     selector = ToolSelector(
         mock_llm_client,
-        ToolSelectionConfig(
-            model="primary-model", fallback_model="fallback-model", max_calls=5
-        ),
+        ToolSelectionConfig(model="primary-model", fallback_model="fallback-model", max_calls=5),
     )
     calls = await selector.select_tool_calls(
         task=PlannedTask(id=1, description="d", sub_tasks=[SubTask(id=1, description="s")]),
@@ -98,9 +96,7 @@ async def test_tool_selector_uses_fallback_model_on_parse_error(
 
     selector = ToolSelector(
         mock_llm_client,
-        ToolSelectionConfig(
-            model="primary-model", fallback_model="fallback-model", max_calls=5
-        ),
+        ToolSelectionConfig(model="primary-model", fallback_model="fallback-model", max_calls=5),
     )
     calls = await selector.select_tool_calls(
         task=PlannedTask(id=1, description="d", sub_tasks=[SubTask(id=1, description="s")]),

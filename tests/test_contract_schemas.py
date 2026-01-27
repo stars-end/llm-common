@@ -40,11 +40,15 @@ def test_contract_matches_models_snapshot() -> None:
 
     expected_advisor_request = AdvisorRequest.model_json_schema()
     expected_advisor_request["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    expected_advisor_request["$id"] = "https://github.com/stars-end/llm-common/contracts/advisor_request.v1.json"
+    expected_advisor_request[
+        "$id"
+    ] = "https://github.com/stars-end/llm-common/contracts/advisor_request.v1.json"
 
     expected_advisor_response = AdvisorResponse.model_json_schema()
     expected_advisor_response["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    expected_advisor_response["$id"] = "https://github.com/stars-end/llm-common/contracts/advisor_response.v1.json"
+    expected_advisor_response[
+        "$id"
+    ] = "https://github.com/stars-end/llm-common/contracts/advisor_response.v1.json"
 
     expected_evidence = Evidence.model_json_schema()
     expected_evidence["$schema"] = "https://json-schema.org/draft/2020-12/schema"
@@ -52,15 +56,21 @@ def test_contract_matches_models_snapshot() -> None:
 
     expected_envelope = EvidenceEnvelope.model_json_schema()
     expected_envelope["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    expected_envelope["$id"] = "https://github.com/stars-end/llm-common/contracts/evidence_envelope.v1.json"
+    expected_envelope[
+        "$id"
+    ] = "https://github.com/stars-end/llm-common/contracts/evidence_envelope.v1.json"
 
     expected_stream_event = StreamEvent.model_json_schema()
     expected_stream_event["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    expected_stream_event["$id"] = "https://github.com/stars-end/llm-common/contracts/stream_event.v1.json"
+    expected_stream_event[
+        "$id"
+    ] = "https://github.com/stars-end/llm-common/contracts/stream_event.v1.json"
 
     expected_tool_result = TypeAdapter(ToolResult).json_schema()
     expected_tool_result["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    expected_tool_result["$id"] = "https://github.com/stars-end/llm-common/contracts/tool_result.v1.json"
+    expected_tool_result[
+        "$id"
+    ] = "https://github.com/stars-end/llm-common/contracts/tool_result.v1.json"
 
     assert advisor_request == expected_advisor_request
     assert advisor_response == expected_advisor_response

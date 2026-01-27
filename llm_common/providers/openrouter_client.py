@@ -245,7 +245,8 @@ class OpenRouterClient(LLMClient):
         input_tokens = input_length // 4
 
         pricing = self.PRICING_ESTIMATES.get(
-            model, {"input": 1.0, "output": 5.0}  # Conservative default
+            model,
+            {"input": 1.0, "output": 5.0},  # Conservative default
         )
 
         input_cost = (input_tokens / 1_000_000) * pricing["input"]
@@ -264,7 +265,8 @@ class OpenRouterClient(LLMClient):
             Cost in USD
         """
         pricing = self.PRICING_ESTIMATES.get(
-            model, {"input": 1.0, "output": 5.0}  # Conservative default
+            model,
+            {"input": 1.0, "output": 5.0},  # Conservative default
         )
 
         input_cost = (usage.prompt_tokens / 1_000_000) * pricing["input"]

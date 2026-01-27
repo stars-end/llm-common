@@ -94,37 +94,45 @@ class ReportGenerator:
                 StoryStatus.RUNNING: "🔄",
             }.get(result.status, "❓")
 
-            lines.extend([
-                f"### {result.story.id} {status_emoji}",
-                "",
-                f"**{result.story.name}**",
-                "",
-                f"- Status: {result.status.value}",
-                f"- Duration: {result.duration_seconds:.2f}s",
-                f"- LLM Calls: {result.llm_calls}",
-            ])
+            lines.extend(
+                [
+                    f"### {result.story.id} {status_emoji}",
+                    "",
+                    f"**{result.story.name}**",
+                    "",
+                    f"- Status: {result.status.value}",
+                    f"- Duration: {result.duration_seconds:.2f}s",
+                    f"- LLM Calls: {result.llm_calls}",
+                ]
+            )
 
             if result.error:
-                lines.extend([
-                    f"- Error: `{result.error}`",
-                ])
+                lines.extend(
+                    [
+                        f"- Error: `{result.error}`",
+                    ]
+                )
 
             if result.screenshot_path:
                 # Use relative path for portability
                 screenshot_name = Path(result.screenshot_path).name
-                lines.extend([
-                    "",
-                    f"![{result.story.name}](screenshots/{screenshot_name})",
-                ])
+                lines.extend(
+                    [
+                        "",
+                        f"![{result.story.name}](screenshots/{screenshot_name})",
+                    ]
+                )
 
             if result.glm_response:
-                lines.extend([
-                    "",
-                    "**GLM-4.6V Analysis**:",
-                    "```",
-                    result.glm_response[:500],  # Truncate long responses
-                    "```",
-                ])
+                lines.extend(
+                    [
+                        "",
+                        "**GLM-4.6V Analysis**:",
+                        "```",
+                        result.glm_response[:500],  # Truncate long responses
+                        "```",
+                    ]
+                )
 
             lines.append("")
 
