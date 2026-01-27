@@ -158,6 +158,7 @@ class UISmokeAgent:
         base_url: str,
         max_tool_iterations: int = 10,
         evidence_dir: str | None = None,
+        action_timeout_ms: int = 10000,
     ):
         """Initialize UI Smoke Agent.
 
@@ -167,12 +168,14 @@ class UISmokeAgent:
             base_url: Base URL for relative navigation
             max_tool_iterations: Max actions per step
             evidence_dir: Directory to save step-completion screenshots
+            action_timeout_ms: Default timeout for actions in ms
         """
         self.llm = glm_client
         self.browser = browser
         self.base_url = base_url
         self.max_tool_iterations = max_tool_iterations
         self.evidence_dir = Path(evidence_dir) if evidence_dir else None
+        self.action_timeout_ms = action_timeout_ms
 
         if self.evidence_dir:
             self.evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -270,7 +273,7 @@ class UISmokeAgent:
             return False
             
         action = str(action).strip()
-        timeout_ms = int(step_data.get("timeout", 30000))
+        timeout_ms = int(step_data.get("timeout", self.action_timeout_ms))
         selector = step_data.get("selector")
         target = step_data.get("target")
         text = step_data.get("text")

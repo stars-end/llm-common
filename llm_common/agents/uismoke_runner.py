@@ -536,6 +536,7 @@ class UISmokeRunner:
                 base_url=self.base_url,
                 max_tool_iterations=self.max_tool_iterations,
                 evidence_dir=str(attempt_ev_dir),
+                action_timeout_ms=self.action_timeout_ms,
             )
 
             # Effective timeout
