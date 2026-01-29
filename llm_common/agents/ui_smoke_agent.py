@@ -385,7 +385,7 @@ class UISmokeAgent:
             step_res = await self._run_step(story.persona, step_id, step_data, deterministic_only=deterministic_only)
             step_res.duration_ms = int((time.time() - start_time) * 1000)
             
-            result.steps.append(step_res)
+            result.step_results.append(step_res)
             
             if step_res.status != "pass":
                 result.status = "fail"

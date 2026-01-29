@@ -1,0 +1,39 @@
+{
+  "story_id": "poc-01-navigate",
+  "status": "not_run",
+  "classification": "auth_failed",
+  "attempts_count": 1,
+  "final_attempt": {
+    "story_id": "poc-01-navigate",
+    "status": "not_run",
+    "step_results": [],
+    "errors": [
+      {
+        "type": "auth_failed",
+        "severity": "blocker",
+        "message": "Auth application failed",
+        "details": {},
+        "url": null
+      }
+    ],
+    "classification": "auth_failed",
+    "attempts": [
+      {
+        "attempt_n": 1,
+        "status": "not_run",
+        "classification": "unknown",
+        "errors": [
+          {
+            "type": "auth_failed",
+            "severity": "blocker",
+            "message": "Auth application failed",
+            "details": {},
+            "url": null
+          }
+        ],
+        "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-01-navigate/attempts/1"
+      }
+    ],
+    "metadata": {}
+  }
+}

@@ -1,0 +1,485 @@
+{
+  "run_id": "20260129-195714",
+  "environment": "unknown",
+  "base_url": "http://localhost:8000",
+  "story_results": [
+    {
+      "story_id": "poc-01-navigate",
+      "status": "not_run",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "auth_failed",
+          "severity": "blocker",
+          "message": "Auth application failed",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "auth_failed",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "not_run",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "auth_failed",
+              "severity": "blocker",
+              "message": "Auth application failed",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-01-navigate/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-02-click",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-02-click/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-03-type",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-03-type/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-04-assert",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-04-assert/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-05-scroll",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-05-scroll/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-06-hover",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-06-hover/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-07-wait",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-07-wait/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-08-iframe",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-08-iframe/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-09-auth-token",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-09-auth-token/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-10-auth-cookie",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-10-auth-cookie/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-11-multitab",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-11-multitab/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-12-table",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-12-table/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-13-chart",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-13-chart/attempts/1"
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "story_id": "poc-14-error-404",
+      "status": "fail",
+      "step_results": [],
+      "errors": [
+        {
+          "type": "crash",
+          "severity": "blocker",
+          "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+          "details": {},
+          "url": null
+        }
+      ],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [
+            {
+              "type": "crash",
+              "severity": "blocker",
+              "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+              "details": {},
+              "url": null
+            }
+          ],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-14-error-404/attempts/1"
+        }
+      ],
+      "metadata": {}
+    }
+  ],
+  "total_errors": {
+    "blocker": 14
+  },
+  "started_at": "2026-01-29T19:57:14.717040+00:00",
+  "completed_at": "2026-01-29T19:57:15.734283+00:00",
+  "metadata": {
+    "stories_total": 14,
+    "stories_passed": 0,
+    "stories_failed": 13,
+    "stories_timed_out": 0,
+    "stories_not_run": 1,
+    "suite_timeout_seconds": 5400,
+    "story_timeout_seconds": 900,
+    "auth_mode": "cookie_bypass",
+    "cookie_signed": false
+  }
+}

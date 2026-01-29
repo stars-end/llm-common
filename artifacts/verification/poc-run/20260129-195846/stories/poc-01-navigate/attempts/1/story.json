@@ -1,0 +1,25 @@
+{
+  "story_id": "poc-01-navigate",
+  "status": "fail",
+  "step_results": [
+    {
+      "step_id": "check-dashboard",
+      "status": "fail",
+      "actions_taken": [],
+      "errors": [
+        {
+          "type": "missing_env",
+          "severity": "blocker",
+          "message": "Expected text not found in body: Portfolio Performance",
+          "details": {},
+          "url": null
+        }
+      ],
+      "duration_ms": 17
+    }
+  ],
+  "errors": [],
+  "classification": "unknown",
+  "attempts": [],
+  "metadata": {}
+}

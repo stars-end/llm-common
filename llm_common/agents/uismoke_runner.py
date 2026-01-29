@@ -7,11 +7,11 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional
 
 from llm_common.agents.auth import AuthConfig, AuthManager
 from llm_common.agents.runtime.playwright_adapter import create_playwright_context
-from llm_common.agents.schemas import AgentError, SmokeRunReport, StoryResult
+from llm_common.agents.schemas import AgentError, SmokeRunReport, StoryResult, AgentStory
 from llm_common.agents.ui_smoke_agent import UISmokeAgent
 from llm_common.agents.utils import load_stories_from_directory
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
@@ -212,6 +212,7 @@ class UISmokeRunner:
             },
         )
 
+        self.report = report
         self._write_artifacts(report)
 
         if self.fail_on_classifications:
@@ -231,30 +232,20 @@ class UISmokeRunner:
                 success = all(r.status in {"pass", "skip"} for r in story_results)
             else:
                 success = all(r.status == "pass" for r in story_results)
-
         self.completed_ok = True
         logger.info(f"UISmoke run complete. Success: {success}")
         return success
 
-    def _classify_failure(self, result: StoryResult) -> str | None:
+    def _classify_failure(self, result: StoryResult) -> str:
         """Heuristic to classify the failure type."""
         if result.status == "pass":
-            return None
+            return "pass"
         if result.status == "skip":
             return "skip"
-        
-        # [NEW] Status-driven classification
         if result.status == "timeout":
-            return "timeout"
-            
+            return "reproducible_timeout"
         if result.status == "not_run":
-            for err in result.errors:
-                if err.type == "suite_timeout":
-                    return "suite_timeout"
-                if err.type == "auth_failed":
-                    return "auth_failed"
             return "not_run"
-
         # [EXISTING] Substring heuristics for failures (status=fail)
         all_errors = result.errors
         msg_blob = " ".join([e.message.lower() for e in all_errors])
@@ -575,7 +566,12 @@ class UISmokeRunner:
 
             try:
                 result = await asyncio.wait_for(
-                    agent.run_story(story, deterministic_only=deterministic_only),
+                    agent.run_story(
+                        story,
+                        glm_client,
+                        attempt_ev_dir,
+                        deterministic_only=deterministic_only,
+                    ),
                     timeout=eff_timeout
                 )
 
@@ -864,7 +860,7 @@ def main():
             # Determine exit code based on QA Contract v1
             # 0: Success, 1: BAD_PRODUCT, 2: BAD_HARNESS_OR_ENV, 3: FLAKY/UNSTABLE, 4: TIMEOUT/CAPACITY
             
-            final_results = runner.report.story_results # Assuming runner.report is available and has story_results
+            final_results = runner.report.story_results
             
             has_product_bug = any(r.classification.startswith("reproducible_") for r in final_results)
             has_harness_failure = any(r.classification in ["auth_failed", "clerk_failed", "navigation_failed"] for r in final_results)

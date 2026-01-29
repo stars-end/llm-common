@@ -1,0 +1,39 @@
+{
+  "story_id": "poc-11-multitab",
+  "status": "fail",
+  "classification": "single_None",
+  "attempts_count": 1,
+  "final_attempt": {
+    "story_id": "poc-11-multitab",
+    "status": "fail",
+    "step_results": [],
+    "errors": [
+      {
+        "type": "crash",
+        "severity": "blocker",
+        "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+        "details": {},
+        "url": null
+      }
+    ],
+    "classification": "single_None",
+    "attempts": [
+      {
+        "attempt_n": 1,
+        "status": "fail",
+        "classification": "unknown",
+        "errors": [
+          {
+            "type": "crash",
+            "severity": "blocker",
+            "message": "UISmokeAgent.run_story() missing 2 required positional arguments: 'glm_client' and 'output_dir'",
+            "details": {},
+            "url": null
+          }
+        ],
+        "evidence_dir": "artifacts/verification/poc-run/20260129-195714/stories/poc-11-multitab/attempts/1"
+      }
+    ],
+    "metadata": {}
+  }
+}
