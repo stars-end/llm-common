@@ -350,52 +350,49 @@ class UISmokeAgent:
                 return True
             raise
 
-    async def run_story(self, story: AgentStory, deterministic_only: bool = False) -> StoryResult:
+    async def run_story(
+        self,
+        story: AgentStory,
+        glm_client: Any,
+        output_dir: Path,
+        deterministic_only: bool = False,
+    ) -> StoryResult:
         """Run a full user story.
-
+        
         Args:
             story: The story to execute
-
+            glm_client: GLMVisionClient instance
+            output_dir: Directory for artifacts
+            deterministic_only: If true, skip non-deterministic steps
+            
         Returns:
-            StoryResult with status and errors
+            StoryResult with status and evidence
         """
         logger.info(f"🚀 Running story: {story.id}")
-        story_errors = []
-        start_url = story.metadata.get("start_url")
-        if start_url:
-            logger.info(f"  📍 Navigating to start URL: {start_url}")
-            await self.browser.navigate(start_url)
-
-        step_results = []
-
+        result = StoryResult(story_id=story.id, status="pass")
+        
         for step_data in story.steps:
             step_id = step_data.get("id", "unknown")
             description = step_data.get("description", "")
+            
+            if deterministic_only and not step_data.get("deterministic", False):
+                logger.info(f"  ⏭️ Skipping non-deterministic step: {step_id}")
+                continue
+                
             logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
-
+            
             start_time = time.time()
-            step_result = await self._run_step(
-                story.persona, step_id, step_data, deterministic_only=deterministic_only
-            )
-            step_result.duration_ms = int((time.time() - start_time) * 1000)
-
-            step_results.append(step_result)
-            story_errors.extend(step_result.errors)
-
-            if step_result.status == "fail":
+            step_res = await self._run_step(story.persona, step_id, step_data, deterministic_only=deterministic_only)
+            step_res.duration_ms = int((time.time() - start_time) * 1000)
+            
+            result.steps.append(step_res)
+            
+            if step_res.status != "pass":
+                result.status = "fail"
                 logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
-
-        # Story status: fail if any step fails, else pass if any pass, else skip
-        if any(r.status == "fail" for r in step_results):
-            status = "fail"
-        elif any(r.status == "pass" for r in step_results):
-            status = "pass"
-        else:
-            status = "skip"
-        return StoryResult(
-            story_id=story.id, status=status, step_results=step_results, errors=story_errors
-        )
+                
+        return result
 
     async def _run_step(
         self, persona: str, step_id: str, step_data: dict[str, Any], deterministic_only: bool = False

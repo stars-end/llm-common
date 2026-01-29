@@ -273,17 +273,16 @@ class UISmokeRunner:
             return "strict_verification_failed"
         if "navigation failed" in msg_blob:
             return "navigation_failed"
-
-        return "other_fail"
+            return "other_fail"
 
     async def _run_story_with_repro(
         self,
-        story,
-        glm_client,
-        suite_start_time,
-        authed_shared,
-        guest_shared,
-        auth_manager,
+        story: AgentStory,
+        glm_client: Any,
+        suite_start_time: float,
+        authed_shared: Any,
+        guest_shared: Any,
+        auth_manager: Any,
         deterministic_only: bool = False,
     ) -> dict[str, Any]:
         """Run a story up to N times if it fails."""
@@ -336,6 +335,19 @@ class UISmokeRunner:
 
         # Final Classification
         final_result = results[-1]
+        
+        # Populate attempts history in the final result for artifacts
+        final_result.attempts = [
+            {
+                "attempt_n": i + 1,
+                "status": r.status,
+                "classification": r.classification,
+                "errors": [e.model_dump() for e in r.errors],
+                "evidence_dir": str(story_ev_dir / "attempts" / str(i + 1))
+            }
+            for i, r in enumerate(results)
+        ]
+        
         final_result.classification = self._get_final_classification(results)
 
         # Write story_summary.json
@@ -761,11 +773,7 @@ def main():
         action="store_true",
         help="Skip steps that aren't deterministic (useful for harness validation)",
     )
-    run_parser.add_argument(
-        "--fail-on-classifications",
-        nargs="+",
-        help="Classifications that should cause the run to fail even in QA mode",
-    )
+    run_parser.add_argument("--fail-on-classifications", type=str, help="Comma-separated classifications that should cause non-zero exit (e.g. flaky_recovered,timeout)")
 
     # New flags
     run_parser.add_argument(
@@ -844,7 +852,7 @@ def main():
             action_timeout_ms=args.action_timeout_ms,
             block_domains=args.block_domains,
             no_default_blocklist=args.no_default_blocklist,
-            fail_on_classifications=args.fail_on_classifications,
+            fail_on_classifications=args.fail_on_classifications.split(',') if args.fail_on_classifications else None,
         )
 
         all_passed = asyncio.run(runner.run())
@@ -853,8 +861,30 @@ def main():
         if args.mode == "qa":
             if not runner.completed_ok:
                 sys.exit(1)
-            if runner.banned_classification_hit:
+            # Determine exit code based on QA Contract v1
+            # 0: Success, 1: BAD_PRODUCT, 2: BAD_HARNESS_OR_ENV, 3: FLAKY/UNSTABLE, 4: TIMEOUT/CAPACITY
+            
+            final_results = runner.report.story_results # Assuming runner.report is available and has story_results
+            
+            has_product_bug = any(r.classification.startswith("reproducible_") for r in final_results)
+            has_harness_failure = any(r.classification in ["auth_failed", "clerk_failed", "navigation_failed"] for r in final_results)
+            has_flaky = any(r.classification == "flaky_recovered" for r in final_results)
+            has_timeout = any("timeout" in r.classification for r in final_results)
+
+            if has_product_bug:
+                logger.error("🛑 EXIT 1: Product Regression detected")
                 sys.exit(1)
+            if has_harness_failure:
+                logger.error("🛑 EXIT 2: Harness/Env Failure detected")
+                sys.exit(2)
+            if has_flaky:
+                logger.info("⚠️ EXIT 3: Flaky/Unstable results detected")
+                sys.exit(3)
+            if has_timeout:
+                 logger.warning("⏳ EXIT 4: Suite Timeout / Capacity issues")
+                 sys.exit(4)
+                 
+            logger.info("✅ EXIT 0: All stories passed or compliant with policy")
             sys.exit(0)
         sys.exit(0 if all_passed else 1)
     elif args.command == "triage":
