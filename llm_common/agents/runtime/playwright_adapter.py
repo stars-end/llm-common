@@ -129,7 +129,15 @@ class PlaywrightAdapter:
                 pass
 
             # Brief hydration pause
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
+            
+            # Optional: wait for networkidle for chart-heavy analytics routes
+            if "/analytics" in path:
+                try:
+                    await self.page.wait_for_load_state("networkidle", timeout=10000)
+                except Exception:
+                    logger.debug("Networkidle timeout for /analytics, proceeding anyway")
+
         except Exception as e:
             from llm_common.agents.exceptions import NavigationError
 
@@ -139,13 +147,29 @@ class PlaywrightAdapter:
         """Perform a robust click (supports selector and text)."""
         logger.info(f"Clicking: {target}")
 
-        async def _do_click():
-            # Try text-based matching if not a selector
-            if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
-                selector = f"text={target}"
-            else:
-                selector = target
+        # Try text-based matching if not a selector
+        if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
+            selector = f"text={target}"
+        else:
+            selector = target
 
+        # BEAD-1.1: Pre-click visibility and actionability checks
+        try:
+            # Wait for visibility
+            await self.page.wait_for_selector(selector, state="visible", timeout=self.action_timeout_ms)
+            
+            # If it's a button, also check if enabled
+            if "button" in selector.lower() or "text=" in selector:
+                try:
+                    await self.page.wait_for_selector(selector, state="enabled", timeout=5000)
+                except Exception:
+                    logger.debug(f"Element {target} not 'enabled' state, attempting click anyway")
+            
+            logger.info(f"Element {target} visible and ready for click")
+        except Exception as e:
+            logger.warning(f"Pre-click check for {target} failed: {e}")
+
+        async def _do_click():
             # force=True bypasses strict actionability checks if needed,
             # but we use it sparingly to ensure user-like behavior
             await self.page.click(selector, timeout=self.action_timeout_ms, force=True)
@@ -156,6 +180,42 @@ class PlaywrightAdapter:
             from llm_common.agents.exceptions import ElementNotFoundError
 
             raise ElementNotFoundError(f"Click failed for {target}: {e}")
+
+    async def click_portal(self, target: str) -> None:
+        """Perform a portal-aware click using dispatch_event, with keyboard fallback."""
+        logger.info(f"Portal Click: {target}")
+        
+        async def _do_portal_click():
+            # Try text-based matching if not a selector
+            if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
+                selector = f"text={target}"
+            else:
+                selector = target
+
+            try:
+                # 1. Wait for visibility
+                await self.page.wait_for_selector(selector, state="visible", timeout=self.action_timeout_ms)
+                
+                # 2. Try dispatchEvent click (portal-safe)
+                # This often works better for MUI Portals which might be layered
+                await self.page.dispatch_event(selector, "click")
+                logger.debug(f"Dispatched click event to {target}")
+                
+                # 3. Simple wait to allow menu transition
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Dispatch click failed for {target}, trying keyboard fallback: {e}")
+                # Fallback: Focus + Arrow Down + Enter
+                await self.page.focus(selector)
+                await self.page.keyboard.press("ArrowDown")
+                await self.page.keyboard.press("Enter")
+                logger.info(f"Keyboard fallback (ArrowDown+Enter) used for {target}")
+
+        try:
+            await self._retry_action(f"click_portal({target})", _do_portal_click)
+        except Exception as e:
+            from llm_common.agents.exceptions import ElementNotFoundError
+            raise ElementNotFoundError(f"Portal click failed for {target}: {e}")
 
     async def type_text(self, selector: str, text: str) -> None:
         """Type text into a field using keyboard simulation."""

@@ -114,6 +114,9 @@ class BrowserAdapter(Protocol):
     async def click(self, target: str) -> None:
         ...
 
+    async def click_portal(self, target: str) -> None:
+        ...
+
     async def type_text(self, selector: str, text: str) -> None:
         ...
 
@@ -233,8 +236,14 @@ class UISmokeAgent:
             raw_target = step_data["click"]
             logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_target)}")
             target = self._substitute_vars(raw_target)
-            await self.browser.click(_sanitize_selector(target))
-            _record("click", {"target": self._redact_secrets(target)})
+            
+            # BEAD-1.3: MUI Portal detection
+            if "li[data-value=" in target.lower():
+                await self.browser.click_portal(_sanitize_selector(target))
+                _record("click_portal", {"target": self._redact_secrets(target)})
+            else:
+                await self.browser.click(_sanitize_selector(target))
+                _record("click", {"target": self._redact_secrets(target)})
             return True
 
         if "type" in step_data:
