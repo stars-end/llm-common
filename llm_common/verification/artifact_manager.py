@@ -30,15 +30,27 @@ class ArtifactManager:
 
         run_dir = self.base_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / "screenshots").mkdir(exist_ok=True)
+        (run_dir / "stories").mkdir(exist_ok=True)
         (run_dir / "logs").mkdir(exist_ok=True)
 
         logger.info(f"📁 Created run directory: {run_dir}")
         return run_dir
 
-    def screenshot_path(self, run_dir: Path, story_id: str) -> Path:
-        """Generate standardized screenshot path."""
-        return run_dir / "screenshots" / f"{story_id}.png"
+    def get_story_dir(self, run_dir: Path, story_id: str) -> Path:
+        """Get the directory for a specific story's artifacts."""
+        story_dir = run_dir / "stories" / story_id
+        story_dir.mkdir(parents=True, exist_ok=True)
+        return story_dir
+
+    def get_attempt_dir(self, run_dir: Path, story_id: str, attempt: int) -> Path:
+        """Get the directory for a specific attempt of a story."""
+        attempt_dir = self.get_story_dir(run_dir, story_id) / "attempts" / str(attempt)
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        return attempt_dir
+
+    def screenshot_path(self, run_dir: Path, story_id: str, attempt: int = 1, name: str = "final") -> Path:
+        """Generate standardized screenshot path within an attempt."""
+        return self.get_attempt_dir(run_dir, story_id, attempt) / f"{name}.png"
 
     def log_path(self, run_dir: Path, name: str = "full_run") -> Path:
         """Generate log file path."""

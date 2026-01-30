@@ -134,10 +134,12 @@ class StoryResult(BaseModel):
     """Result of a complete story execution."""
 
     story_id: str
-    status: str  # pass, fail, skip
+    status: str = "fail"  # pass, fail, skip, not_run
     step_results: list[StepResult] = Field(default_factory=list)
     errors: list[AgentError] = Field(default_factory=list)
-    classification: str | None = None  # reproducible_fail, flaky_inconclusive, etc.
+    classification: str = "unknown"
+    attempts: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelevantTurns(BaseModel):

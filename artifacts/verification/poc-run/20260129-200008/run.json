@@ -1,0 +1,56 @@
+{
+  "run_id": "20260129-200008",
+  "environment": "unknown",
+  "base_url": "http://localhost:8000",
+  "story_results": [
+    {
+      "story_id": "poc-01-navigate",
+      "status": "fail",
+      "step_results": [
+        {
+          "step_id": "check-dashboard",
+          "status": "fail",
+          "actions_taken": [],
+          "errors": [
+            {
+              "type": "missing_env",
+              "severity": "blocker",
+              "message": "Expected text not found in body: Portfolio Performance",
+              "details": {},
+              "url": null
+            }
+          ],
+          "duration_ms": 12
+        }
+      ],
+      "errors": [],
+      "classification": "single_None",
+      "attempts": [
+        {
+          "attempt_n": 1,
+          "status": "fail",
+          "classification": "unknown",
+          "errors": [],
+          "evidence_dir": "artifacts/verification/poc-run/20260129-200008/stories/poc-01-navigate/attempts/1"
+        }
+      ],
+      "metadata": {}
+    }
+  ],
+  "total_errors": {
+    "blocker": 0
+  },
+  "started_at": "2026-01-29T20:00:08.317203+00:00",
+  "completed_at": "2026-01-29T20:00:10.987472+00:00",
+  "metadata": {
+    "stories_total": 1,
+    "stories_passed": 0,
+    "stories_failed": 1,
+    "stories_timed_out": 0,
+    "stories_not_run": 0,
+    "suite_timeout_seconds": 5400,
+    "story_timeout_seconds": 900,
+    "auth_mode": "cookie_bypass",
+    "cookie_signed": true
+  }
+}
