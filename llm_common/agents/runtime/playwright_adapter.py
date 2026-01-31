@@ -2,6 +2,8 @@ import asyncio
 import base64
 import logging
 import os
+import re
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -148,10 +150,17 @@ class PlaywrightAdapter:
         logger.info(f"Clicking: {target}")
 
         # Try text-based matching if not a selector
-        if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
-            selector = f"text={target}"
-        else:
+        # A selector starts with direct markers, or contains structural CSS markers
+        # We use regex to ensure '.' is followed by a word character (avoiding confusion with '...')
+        is_selector = any(target.startswith(p) for p in ["[", "#", ".", "text=", "xpath="]) or \
+                      any(c in target for c in ["[", ">", "="]) or \
+                      bool(re.search(r"\.[a-zA-Z_]", target)) or \
+                      bool(re.search(r"#[a-zA-Z_]", target))
+        
+        if is_selector:
             selector = target
+        else:
+            selector = f"text={target}"
 
         # BEAD-1.1: Pre-click visibility and actionability checks
         try:
@@ -187,10 +196,15 @@ class PlaywrightAdapter:
         
         async def _do_portal_click():
             # Try text-based matching if not a selector
-            if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
-                selector = f"text={target}"
-            else:
+            is_selector = any(target.startswith(p) for p in ["[", "#", ".", "text=", "xpath="]) or \
+                          any(c in target for c in ["[", ">", "="]) or \
+                          bool(re.search(r"\.[a-zA-Z_]", target)) or \
+                          bool(re.search(r"#[a-zA-Z_]", target))
+            
+            if is_selector:
                 selector = target
+            else:
+                selector = f"text={target}"
 
             try:
                 # 1. Wait for visibility
@@ -285,10 +299,15 @@ class PlaywrightAdapter:
         async def _do_click():
             frame_loc = self.page.frame_locator(frame_selector)
             # Try specific selector or text
-            if not any(target.startswith(p) for p in ["[", "#", ".", "text="]):
-                sel = f"text={target}"
-            else:
+            is_selector = any(target.startswith(p) for p in ["[", "#", ".", "text=", "xpath="]) or \
+                          any(c in target for c in ["[", ">", "="]) or \
+                          bool(re.search(r"\.[a-zA-Z_]", target)) or \
+                          bool(re.search(r"#[a-zA-Z_]", target))
+            
+            if is_selector:
                 sel = target
+            else:
+                sel = f"text={target}"
             await frame_loc.locator(sel).click(timeout=self.action_timeout_ms, force=True)
 
         try:
