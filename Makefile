@@ -28,3 +28,8 @@ setup-git-hooks:
 	@bash scripts/setup-git-hooks.sh
 
 .PHONY: setup-git-hooks
+
+regenerate-agents-md:
+	@zsh scripts/agents-md-compile.zsh
+
+.PHONY: regenerate-agents-md

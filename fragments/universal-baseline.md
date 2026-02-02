@@ -1,6 +1,3 @@
-<!-- AUTO-GENERATED - DO NOT EDIT DIRECTLY -->
-<!-- Generated at: 2026-02-02T20:59:13Z -->
-
 # Universal Baseline — Agent Skills
 <!-- AUTO-GENERATED -->
 <!-- Source SHA: b6d064d5f5a91e610359e4aa8b4ee4191db57945 -->
@@ -243,25 +240,3 @@ When ending a work session, MUST complete ALL steps:
 **Details**: Each skill's SKILL.md contains full documentation  
 **Specification**: https://agentskills.io/specification  
 **Source**: Generated from agent-skills commit shown in header
-
----
-
-# Repo Addendum: llm-common
-
-## Tech Stack
-- **Language**: Python 3.12+
-- **Build System**: Poetry
-- **Purpose**: Shared LLM utilities, database schema, and agent logic.
-
-## Development Rules
-- This is a shared package used by `affordabot` and `prime-radiant-ai`.
-- Changes MUST be backward compatible or coordinated across consumers.
-- Use `make ci-lite` for fast local verification.
-- Always use absolute imports within the package.
-
----
-
-## Context Skills Index
-
-| Skill | Purpose |
-|-------|---------|
