@@ -2,12 +2,12 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-# FIX: Robustly find hooks directory even in worktrees
-HOOKS_DIR="$(git rev-parse --git-path hooks)"
+HOOKS_DIR="$REPO_ROOT/.git/hooks"
 
 echo "Installing git hooks for $(basename "$REPO_ROOT")..."
 
 # Pre-commit hook (FIX 6: robust worktree detection)
+rm -f "$HOOKS_DIR/pre-commit"
 cat > "$HOOKS_DIR/pre-commit" <<'HOOK'
 #!/bin/zsh
 set -euo pipefail
