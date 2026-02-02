@@ -23,3 +23,8 @@ test:
 ci-lite: lint test
 	@echo "✅ CI Lite completed successfully"
 
+
+setup-git-hooks:
+	@bash scripts/setup-git-hooks.sh
+
+.PHONY: setup-git-hooks
