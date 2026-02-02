@@ -58,3 +58,4 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+.CANONICAL_REPO
