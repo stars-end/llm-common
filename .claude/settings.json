@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/git_safety_guard.py"
+            "command": "dcg"
           }
         ]
       }
