@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -22,12 +21,10 @@ class AuthConfig:
     cookie_value: str | None = None
     cookie_domain: str | None = None  # "auto" or explicit
     cookie_signed: bool = False
-    cookie_secret_env: str = "TEST_AUTH_BYPASS_SECRET"
+    cookie_secret_env: str | None = None
     # For ui_login
     email: str | None = None
     password: str | None = None
-    email_env: str = "TEST_USER_EMAIL"
-    password_env: str = "TEST_USER_PASSWORD"
     login_path: str = "/sign-in"
     # For storage_state
     storage_state_path: str | None = None
@@ -51,6 +48,12 @@ class AuthManager:
 
             cookie_value = self.config.cookie_value
             if self.config.cookie_signed:
+                if not self.config.cookie_secret_env:
+                    logger.error("cookie_secret_env required when cookie_signed is True")
+                    return False
+
+                import os
+
                 secret = os.environ.get(self.config.cookie_secret_env)
                 if not secret:
                     logger.error(f"Secret not found in env var: {self.config.cookie_secret_env}")
@@ -70,6 +73,7 @@ class AuthManager:
                     "exp": int(time.time()) + 7200,  # 2 hours TTL
                 }
                 cookie_value = sign_token(payload, secret)
+                logger.info(f"Generated signed bypass cookie for {sub} (TTL=2h)")
             else:
                 if not cookie_value:
                     logger.error("cookie_value required for unsigned cookie_bypass")
@@ -91,22 +95,21 @@ class AuthManager:
                 "sameSite": "Lax",
             }
             await adapter.page.context.add_cookies([cookie])
+            # Redact high entropy cookie value in logs
+            display_val = f"{cookie_value[:6]}..." if self.config.cookie_signed else cookie_value
             logger.info(
-                f"Set bypass cookie: {self.config.cookie_name} ({'signed' if self.config.cookie_signed else 'plain'}) (domain={domain})"
+                f"Set bypass cookie: {self.config.cookie_name}={display_val} (domain={domain})"
             )
             return True
 
         if self.config.mode == "ui_login":
-            email = self.config.email or os.environ.get(self.config.email_env)
-            password = self.config.password or os.environ.get(self.config.password_env)
-            if not email or not password:
-                logger.error(
-                    f"UI login requires credentials: provide --email/--password or set env vars "
-                    f"{self.config.email_env} and {self.config.password_env}"
-                )
+            if not self.config.email or not self.config.password:
+                logger.error("email and password required for ui_login mode")
                 return False
 
-            logger.info(f"Performing UI login for {email} at {self.config.login_path}...")
+            logger.info(
+                f"Performing UI login for {self.config.email} at {self.config.login_path}..."
+            )
             try:
                 await adapter.navigate(self.config.login_path)
                 # Clerk-specific or Generic fallback
@@ -123,9 +126,9 @@ class AuthManager:
                 if await page.get_by_text("Sign in to continue").is_visible():
                     await page.click("text=Sign in to continue")
 
-                await page.fill("input[name='identifier']", email)
+                await page.fill("input[name='identifier']", self.config.email)
                 await page.click("button:has-text('Continue')")
-                await page.fill("input[name='password']", password)
+                await page.fill("input[name='password']", self.config.password)
                 await page.click("button:has-text('Continue')")
 
                 # Wait for redirect away from sign-in

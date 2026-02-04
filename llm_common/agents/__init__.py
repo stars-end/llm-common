@@ -1,5 +1,4 @@
 from llm_common.agents.auth import AuthConfig, AuthManager
-from llm_common.agents.token_utils import sign_token, verify_token
 from llm_common.agents.callbacks import (
     AgentCallbacks,
     ToolCallInfo,
@@ -130,8 +129,6 @@ __all__ = [
     # Orchestrator (Dexter RAG V2)
     "IterativeOrchestrator",
     "OrchestratorResult",
-    "sign_token",
-    "verify_token",
 ]
 
 

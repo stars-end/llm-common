@@ -138,14 +138,10 @@ uismoke run --stories ./docs/TESTING/STORIES --base-url https://dev.example.ai -
 ```
 
 Features:
-### QA mode vs Gate mode
-- `--mode qa`: Exit 0 if the harness completed and produced artifacts, even if product failures occurred. Use this for discovery/nightly runs where you want to triage all results. Exit 1 only on harness crash or misconfiguration.
-- `--mode gate`: Exit 1 if any story does not pass. Use this for CI/PR gates where zero regressions are required.
-
-### Triage Behavior (Hardened)
-The triage tool (`uismoke triage`) classifies failures to minimize noise:
-- **Bug**: Created only for reproducible failures where either the failure occurred in a deterministic step (`wait_for_selector`, `click`, etc.) or it's a specific assertion-type error (`verification_error`, `assert_text`, `403_forbidden`).
-- **Triage**: Created for all other failures (timeouts, unknown flaky issues, harness errors).
+- **Canonical Adapter**: Robust Playwright wrapper with network blocking and trace support.
+- **Fail-Fast Auth**: Validates login state before executing long-running suites.
+- **Artifacts**: Generates standardized `run.json`, `run.md`, and per-story evidence folders.
+- **Cross-Repo**: Used by `prime-radiant-ai` and `affordabot`.
 
 ## Architecture
 
