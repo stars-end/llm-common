@@ -62,3 +62,6 @@ Thumbs.db
 # External Beads database (repo-local .beads/ no longer used)
 .beads/
 **/.beads/
+
+# DX session lock files
+.dx-session-lock
