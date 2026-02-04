@@ -30,15 +30,41 @@ class ArtifactManager:
 
         run_dir = self.base_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "stories").mkdir(exist_ok=True)
         (run_dir / "screenshots").mkdir(exist_ok=True)
         (run_dir / "logs").mkdir(exist_ok=True)
 
         logger.info(f"📁 Created run directory: {run_dir}")
         return run_dir
 
-    def screenshot_path(self, run_dir: Path, story_id: str) -> Path:
-        """Generate standardized screenshot path."""
-        return run_dir / "screenshots" / f"{story_id}.png"
+    def get_story_dir(self, run_dir: Path, story_id: str) -> Path:
+        """Get the directory for a specific story's artifacts (legacy layout)."""
+        story_dir = run_dir / "stories" / story_id
+        story_dir.mkdir(parents=True, exist_ok=True)
+        return story_dir
+
+    def get_attempt_dir(self, run_dir: Path, story_id: str, attempt: int) -> Path:
+        """Get the directory for a specific attempt of a story (legacy layout)."""
+        attempt_dir = self.get_story_dir(run_dir, story_id) / "attempts" / str(attempt)
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        return attempt_dir
+
+    def screenshot_path(
+        self, run_dir: Path, story_id: str, attempt: int = 1, name: str = "final"
+    ) -> Path:
+        """Generate standardized screenshot path.
+
+        Default layout is a flat `screenshots/` directory for consistency with
+        `VerificationConfig.screenshots_dir`.
+
+        The legacy per-story/per-attempt directory helpers remain available via
+        `get_story_dir()` / `get_attempt_dir()`.
+        """
+        if attempt == 1 and name == "final":
+            filename = f"{story_id}.png"
+        else:
+            filename = f"{story_id}.attempt{attempt}.{name}.png"
+        return run_dir / "screenshots" / filename
 
     def log_path(self, run_dir: Path, name: str = "full_run") -> Path:
         """Generate log file path."""
