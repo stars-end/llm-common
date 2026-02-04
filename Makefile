@@ -23,3 +23,7 @@ test:
 ci-lite: lint test
 	@echo "✅ CI Lite completed successfully"
 
+regenerate-agents-md:
+	@echo "🔄 Regenerating AGENTS.md..."
+	@./scripts/agents-md-compile.zsh
+
