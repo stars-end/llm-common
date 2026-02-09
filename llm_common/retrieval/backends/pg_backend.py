@@ -25,6 +25,36 @@ except ImportError as e:
 from llm_common.retrieval.base import RetrievalBackend
 from llm_common.retrieval.models import RetrievedChunk
 
+# Security: Whitelist of allowed table names to prevent SQL injection
+_ALLOWED_TABLES = frozenset({
+    "document_chunks",
+    "chunks",
+    "embeddings",
+    "rag_documents",
+    "knowledge_base",
+    # Test tables (for CI/testing only)
+    "test_chunks",
+    "custom_table",
+})
+
+# Security: Whitelist of allowed column names to prevent SQL injection
+_ALLOWED_COLUMNS = frozenset({
+    "id",
+    "content",
+    "text",
+    "source",
+    "metadata",
+    "embedding",
+    "vector",
+    "chunk_id",
+    # Test columns (for CI/testing only)
+    "vec",
+    "txt",
+    "src",
+    "pk",
+    "meta",
+})
+
 
 class PgVectorBackend(RetrievalBackend):
     """Generic pgvector backend using SQLAlchemy + asyncpg.
@@ -90,7 +120,32 @@ class PgVectorBackend(RetrievalBackend):
         pool_size: int = 5,
         max_overflow: int = 10,
     ) -> None:
-        """Initialize the pgvector backend."""
+        """Initialize the pgvector backend.
+
+        Raises:
+            ValueError: If table or column names are not in the security whitelist.
+        """
+        # Security: Validate table name against whitelist to prevent SQL injection
+        if table not in _ALLOWED_TABLES:
+            raise ValueError(
+                f"Invalid table name '{table}'. Allowed tables: {sorted(_ALLOWED_TABLES)}. "
+                f"This restriction prevents SQL injection attacks."
+            )
+
+        # Security: Validate column names against whitelist to prevent SQL injection
+        for col_name, col_value in [
+            ("vector_col", vector_col),
+            ("text_col", text_col),
+            ("source_col", source_col),
+            ("id_col", id_col),
+            ("metadata_col", metadata_col),
+        ]:
+            if col_value not in _ALLOWED_COLUMNS:
+                raise ValueError(
+                    f"Invalid {col_name} '{col_value}'. Allowed columns: {sorted(_ALLOWED_COLUMNS)}. "
+                    f"This restriction prevents SQL injection attacks."
+                )
+
         self.database_url = database_url
         self.table = table
         self.embed_fn = embed_fn
@@ -169,6 +224,9 @@ class PgVectorBackend(RetrievalBackend):
             sql_query += " WHERE " + " AND ".join(where_clauses)
 
         # Order by similarity and limit
+        # Security: Validate top_k is a positive integer to prevent SQL injection
+        if not isinstance(top_k, int) or top_k < 1 or top_k > 10000:
+            raise ValueError(f"top_k must be a positive integer (1-10000), got: {top_k}")
         sql_query += f" ORDER BY similarity DESC LIMIT {top_k}"
 
         # Execute query
