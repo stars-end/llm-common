@@ -478,3 +478,135 @@ async def test_custom_column_names(mock_embed_fn, mock_engine):
         assert backend.source_col == "src"
         assert backend.id_col == "pk"
         assert backend.metadata_col == "meta"
+
+
+# ============================================================================
+# SQL Injection Prevention Tests (bd-fxw9)
+# ============================================================================
+
+
+def test_sql_injection_prevents_invalid_table_name(mock_embed_fn, mock_engine):
+    """Test that invalid table names are rejected to prevent SQL injection."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        # Attempt to create backend with malicious table name
+        with pytest.raises(ValueError, match="Invalid table name"):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="users; DROP TABLE users; --",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=1536,
+            )
+
+
+def test_sql_injection_prevents_union_based_table_name(mock_embed_fn, mock_engine):
+    """Test that UNION-based SQL injection is prevented in table names."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="chunks UNION SELECT * FROM users",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=1536,
+            )
+
+
+def test_sql_injection_prevents_invalid_column_name(mock_embed_fn, mock_engine):
+    """Test that invalid column names are rejected to prevent SQL injection."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        with pytest.raises(ValueError, match="Invalid.*column"):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="document_chunks",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=1536,
+                id_col="id; DELETE FROM chunks WHERE 1=1; --",
+            )
+
+
+def test_sql_injection_allows_valid_whitelisted_tables(mock_embed_fn, mock_engine):
+    """Test that valid whitelisted table names are accepted."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        # All these table names should be allowed
+        valid_tables = ["document_chunks", "chunks", "embeddings", "rag_documents", "knowledge_base"]
+
+        for table in valid_tables:
+            backend = PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table=table,
+                embed_fn=mock_embed_fn,
+                vector_dimensions=1536,
+            )
+            assert backend.table == table
+
+
+def test_sql_injection_allows_valid_whitelisted_columns(mock_embed_fn, mock_engine):
+    """Test that valid whitelisted column names are accepted."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        backend = PgVectorBackend(
+            database_url="postgresql+asyncpg://test:test@localhost/test",
+            table="document_chunks",
+            embed_fn=mock_embed_fn,
+            vector_dimensions=1536,
+            vector_col="vector",
+            text_col="text",
+            source_col="source",
+            id_col="id",
+            metadata_col="metadata",
+        )
+
+        assert backend.vector_col == "vector"
+        assert backend.text_col == "text"
+        assert backend.source_col == "source"
+        assert backend.id_col == "id"
+        assert backend.metadata_col == "metadata"
+
+
+@pytest.mark.asyncio
+async def test_sql_injection_validates_top_k_parameter(backend, mock_engine):
+    """Test that top_k parameter is validated to prevent SQL injection."""
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = []
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value=mock_result)
+
+    mock_engine.begin.return_value.__aenter__.return_value = mock_conn
+    mock_engine.begin.return_value.__aexit__.return_value = None
+
+    # Test invalid top_k values
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        await backend.retrieve("test query", top_k=-1)
+
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        await backend.retrieve("test query", top_k=0)
+
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        await backend.retrieve("test query", top_k=10001)
+
+    # Test string top_k (should raise)
+    with pytest.raises(ValueError):
+        await backend.retrieve("test query", top_k="5 OR 1=1")
+
+
+@pytest.mark.asyncio
+async def test_sql_injection_prevents_comment_injection(mock_embed_fn, mock_engine):
+    """Test that SQL comment injection is prevented."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        with pytest.raises(ValueError):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="chunks--",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=1536,
+            )
