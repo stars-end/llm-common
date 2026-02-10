@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Guardrail: hard block pushes to the default branch (master) and enforce branch hygiene.
+
+default_branch=$(git remote show origin 2>/dev/null | sed -n 's/^\\s*HEAD branch: //p')
+if [[ -z "$default_branch" ]]; then default_branch="master"; fi
+
+# block pushes to default branch
+blocked=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/"$default_branch")
+      echo "❌ Pushing directly to $default_branch is blocked." >&2
+      echo "   Open a PR instead." >&2
+      blocked=1
+      ;;
+  esac
+done
+if [[ $blocked -ne 0 ]]; then exit 1; fi
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+case "$branch" in
+  release-*|feature-*|fix-*|hotfix-*)
+    ;;
+  *)
+    if [[ -n "$branch" ]]; then
+      echo "⚠️  Non-standard branch name: $branch" >&2
+      echo "    Expected: feature-<KEY> | fix-<topic> | hotfix-<topic> | release-<date>" >&2
+    fi
+    ;;
+esac
+
+exit 0
+
