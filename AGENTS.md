@@ -409,9 +409,29 @@ dx-janitor --dry-run --verbose
 
 ---
 
-**Discovery**: Skills auto-load from `~/agent-skills/{core,extended,health,infra,railway}/*/SKILL.md`  
-**Details**: Each skill's SKILL.md contains full documentation  
-**Specification**: https://agentskills.io/specification  
+## Skills Architecture
+
+### Global Skills (in ~/.agent/skills)
+Workflow and utility skills from agent-skills repo:
+- `core/beads-workflow` - Issue tracking
+- `core/sync-feature-branch` - Git workflow
+- `core/create-pull-request` - PR creation
+- `dispatch/multi-agent-dispatch` - Cross-VM dispatch
+- `health/bd-doctor` - Diagnostics
+
+### Repo-Specific Context (in .claude/skills/)
+Domain knowledge skills specific to THIS repo:
+- `context-providers` - LLM provider implementations
+- `context-abstractions` - Core interfaces
+- `context-testing` - Test patterns
+
+**Auto-Update**: Context skills are automatically updated via GitHub Actions when PRs are merged.
+
+---
+
+**Discovery**: Skills auto-load from `~/agent-skills/{core,extended,health,infra,railway}/*/SKILL.md`
+**Details**: Each skill's SKILL.md contains full documentation
+**Specification**: https://agentskills.io/specification
 **Source**: Generated from agent-skills commit shown in header
 
 ---
