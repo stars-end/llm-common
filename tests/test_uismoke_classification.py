@@ -1,8 +1,9 @@
 
-import pytest
 from unittest.mock import MagicMock
+
+from llm_common.agents.schemas import AgentError, StoryResult
 from llm_common.agents.uismoke_runner import UISmokeRunner
-from llm_common.agents.schemas import StoryResult, AgentError
+
 
 def test_classification_status_timeout():
     runner = UISmokeRunner(
@@ -13,8 +14,8 @@ def test_classification_status_timeout():
     )
     # Even if error message doesn't say timeout, status=timeout should return "timeout"
     result = StoryResult(
-        story_id="s1", 
-        status="timeout", 
+        story_id="s1",
+        status="timeout",
         errors=[AgentError(type="unknown", severity="blocker", message="Stopped due to limits")]
     )
     classification = runner._classify_failure(result)
@@ -28,8 +29,8 @@ def test_classification_status_not_run_suite_timeout():
         auth_config=MagicMock(),
     )
     result = StoryResult(
-        story_id="s1", 
-        status="not_run", 
+        story_id="s1",
+        status="not_run",
         errors=[AgentError(type="suite_timeout", severity="blocker", message="Suite timeout exceeded")]
     )
     classification = runner._classify_failure(result)
@@ -43,8 +44,8 @@ def test_classification_status_not_run_auth_failed():
         auth_config=MagicMock(),
     )
     result = StoryResult(
-        story_id="s1", 
-        status="not_run", 
+        story_id="s1",
+        status="not_run",
         errors=[AgentError(type="auth_failed", severity="blocker", message="Auth verification failed")]
     )
     classification = runner._classify_failure(result)
@@ -58,8 +59,8 @@ def test_classification_status_not_run_generic():
         auth_config=MagicMock(),
     )
     result = StoryResult(
-        story_id="s1", 
-        status="not_run", 
+        story_id="s1",
+        status="not_run",
         errors=[AgentError(type="dependency", severity="blocker", message="Skipped due to dependency")]
     )
     classification = runner._classify_failure(result)
@@ -75,8 +76,8 @@ def test_classification_fallback_heuristics():
     )
     # Fail status, check msg heuristics
     result = StoryResult(
-        story_id="s1", 
-        status="fail", 
+        story_id="s1",
+        status="fail",
         errors=[AgentError(type="error", severity="blocker", message="Some navigation failed here")]
     )
     classification = runner._classify_failure(result)

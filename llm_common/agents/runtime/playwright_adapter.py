@@ -3,7 +3,6 @@ import base64
 import logging
 import os
 import re
-import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -132,7 +131,7 @@ class PlaywrightAdapter:
 
             # Brief hydration pause
             await asyncio.sleep(5)
-            
+
             # Optional: wait for networkidle for chart-heavy analytics routes
             if "/analytics" in path:
                 try:
@@ -156,7 +155,7 @@ class PlaywrightAdapter:
                       any(c in target for c in ["[", ">", "="]) or \
                       bool(re.search(r"\.[a-zA-Z_]", target)) or \
                       bool(re.search(r"#[a-zA-Z_]", target))
-        
+
         if is_selector:
             selector = target
         else:
@@ -166,14 +165,14 @@ class PlaywrightAdapter:
         try:
             # Wait for visibility
             await self.page.wait_for_selector(selector, state="visible", timeout=self.action_timeout_ms)
-            
+
             # If it's a button, also check if enabled
             if "button" in selector.lower() or "text=" in selector:
                 try:
                     await self.page.wait_for_selector(selector, state="enabled", timeout=5000)
                 except Exception:
                     logger.debug(f"Element {target} not 'enabled' state, attempting click anyway")
-            
+
             logger.info(f"Element {target} visible and ready for click")
         except Exception as e:
             logger.warning(f"Pre-click check for {target} failed: {e}")
@@ -193,14 +192,14 @@ class PlaywrightAdapter:
     async def click_portal(self, target: str) -> None:
         """Perform a portal-aware click using dispatch_event, with keyboard fallback."""
         logger.info(f"Portal Click: {target}")
-        
+
         async def _do_portal_click():
             # Try text-based matching if not a selector
             is_selector = any(target.startswith(p) for p in ["[", "#", ".", "text=", "xpath="]) or \
                           any(c in target for c in ["[", ">", "="]) or \
                           bool(re.search(r"\.[a-zA-Z_]", target)) or \
                           bool(re.search(r"#[a-zA-Z_]", target))
-            
+
             if is_selector:
                 selector = target
             else:
@@ -209,12 +208,12 @@ class PlaywrightAdapter:
             try:
                 # 1. Wait for visibility
                 await self.page.wait_for_selector(selector, state="visible", timeout=self.action_timeout_ms)
-                
+
                 # 2. Try dispatchEvent click (portal-safe)
                 # This often works better for MUI Portals which might be layered
                 await self.page.dispatch_event(selector, "click")
                 logger.debug(f"Dispatched click event to {target}")
-                
+
                 # 3. Simple wait to allow menu transition
                 await asyncio.sleep(0.5)
             except Exception as e:
@@ -303,7 +302,7 @@ class PlaywrightAdapter:
                           any(c in target for c in ["[", ">", "="]) or \
                           bool(re.search(r"\.[a-zA-Z_]", target)) or \
                           bool(re.search(r"#[a-zA-Z_]", target))
-            
+
             if is_selector:
                 sel = target
             else:
@@ -324,7 +323,7 @@ class PlaywrightAdapter:
             locator = frame_loc.locator(selector)
             await locator.wait_for(state="visible", timeout=self.action_timeout_ms)
             await locator.click(timeout=self.action_timeout_ms, force=True)
-            # Cannot use keyboard.press on frame locator easily in all versions, 
+            # Cannot use keyboard.press on frame locator easily in all versions,
             # but locator.press works.
             # However, to be robust: select all + delete
             await locator.focus()

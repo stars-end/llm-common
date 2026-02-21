@@ -8,26 +8,26 @@ from typing import Any
 
 def sign_token(payload: dict[str, Any], secret: str) -> str:
     """Sign a payload using HMAC-SHA256 according to Auth Bypass v1 spec.
-    
+
     Format: v1.<payload_b64url>.<sig_b64url>
     """
     if "iat" not in payload:
         payload["iat"] = int(time.time())
-    
+
     payload_json = json.dumps(payload, separators=(",", ":"))
     payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip("=")
     header = "v1"
     msg = f"{header}.{payload_b64}"
-    
+
     sig = hmac.new(secret.encode(), msg.encode(), hashlib.sha256).digest()
     sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
-    
+
     return f"{msg}.{sig_b64}"
 
 
 def verify_token(token: str, secret: str) -> dict[str, Any]:
     """Verify a v1 token and return the payload.
-    
+
     Raises ValueError for invalid format, signature, or expiration.
     """
     if not token.startswith("v1."):

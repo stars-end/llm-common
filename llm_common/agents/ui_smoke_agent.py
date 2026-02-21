@@ -236,7 +236,7 @@ class UISmokeAgent:
             raw_target = step_data["click"]
             logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_target)}")
             target = self._substitute_vars(raw_target)
-            
+
             # BEAD-1.3: MUI Portal detection
             if "li[data-value=" in target.lower():
                 await self.browser.click_portal(_sanitize_selector(target))
@@ -280,7 +280,7 @@ class UISmokeAgent:
         action = step_data.get("action")
         if not action:
             return False
-            
+
         action = str(action).strip()
         timeout_ms = int(step_data.get("timeout", self.action_timeout_ms))
         selector = step_data.get("selector")
@@ -386,6 +386,7 @@ class UISmokeAgent:
             
             if deterministic_only and not step_data.get("deterministic", False):
                 logger.info(f"  ⏭️ Skipping non-deterministic step: {step_id}")
+                result.step_results.append(StepResult(step_id=step_id, status="skip"))
                 continue
                 
             logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
@@ -401,6 +402,8 @@ class UISmokeAgent:
                 logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
                 
+        return result
+
         return result
 
     async def _run_step(
@@ -519,7 +522,7 @@ class UISmokeAgent:
             # If the user put secrets in description without {{ENV:...}}, that's on them.
             # We explicitly redact any known {{ENV:...}} patterns if they are not meant for LLM.
             # But here, we just want to ensure we don't accidentally reveal the VALUE.
-            
+
             prompt = (
                 f"Step: {self._redact_secrets(description)}\nCurrent URL: {current_url}\n"
                 "Goal: Complete the step described above."

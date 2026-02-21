@@ -54,7 +54,7 @@ async def test_variable_substitution_logic(mock_browser, mock_llm):
         "text": "{{ENV:TEST_SECRET}}",
     }
     await agent._run_step("test_persona", "s1", step_det)
-    
+
     # Verify the browser got the REAL value
     mock_browser.type_text.assert_called_with("#input", "super_secret_value")
     # Verify the log/artifact got the REDACTED value
@@ -68,7 +68,7 @@ async def test_variable_substitution_logic(mock_browser, mock_llm):
     # We need to mock the LLM response to avoid network calls
     mock_llm.chat_completion.return_value.content = "OK"
     mock_llm.chat_completion.return_value.metadata = {"raw_response": {}}
-    
+
     # It will fail/loop because we mocked nothing, but we just check the call args
     try:
         await agent._run_step("test_persona", "s2", step_llm)
@@ -84,7 +84,7 @@ async def test_variable_substitution_logic(mock_browser, mock_llm):
         if "[REDACTED]" in text_content and "super_secret_value" not in text_content:
             found_redacted = True
             break
-    
+
     assert found_redacted, "LLM prompt should contain [REDACTED] and NOT the secret value"
 
 

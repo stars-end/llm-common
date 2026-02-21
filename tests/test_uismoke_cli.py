@@ -1,14 +1,15 @@
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from llm_common.agents.uismoke_runner import main
+
 
 def test_cli_exit_qa_mode_with_failures():
     """QA mode should exit 0 even if there are failures, provided the runner completes."""
     with patch("argparse.ArgumentParser.parse_args") as mock_args, \
-         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as MockRunner:
-        
+         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as mock_runner:
+
         mock_args.return_value = MagicMock(
             command="run",
             stories="stories",
@@ -28,16 +29,16 @@ def test_cli_exit_qa_mode_with_failures():
             password=None, email_env=None,
             password_env=None, storage_state=None
         )
-        
-        runner_instance = MockRunner.return_value
-        
+
+        runner_instance = mock_runner.return_value
+
         # Make runner.run return a coroutine that returns False
         async def mock_run():
             return False
         runner_instance.run.side_effect = mock_run
-        
+
         runner_instance.completed_ok = True      # Harness finished fine
-        
+
         # We expect sys.exit(0)
         with pytest.raises(SystemExit) as cm:
             main()
@@ -46,8 +47,8 @@ def test_cli_exit_qa_mode_with_failures():
 def test_cli_exit_gate_mode_with_failures():
     """Gate mode should exit 1 if there are failures."""
     with patch("argparse.ArgumentParser.parse_args") as mock_args, \
-         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as MockRunner:
-        
+         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as mock_runner:
+
         mock_args.return_value = MagicMock(
             command="run",
             stories="stories",
@@ -67,15 +68,15 @@ def test_cli_exit_gate_mode_with_failures():
             password=None, email_env=None,
             password_env=None, storage_state=None
         )
-        
-        runner_instance = MockRunner.return_value
-        
+
+        runner_instance = mock_runner.return_value
+
         async def mock_run():
             return False
         runner_instance.run.side_effect = mock_run
-        
+
         runner_instance.completed_ok = True
-        
+
         # We expect sys.exit(1)
         with pytest.raises(SystemExit) as cm:
             main()
@@ -84,8 +85,8 @@ def test_cli_exit_gate_mode_with_failures():
 def test_cli_exit_harness_crash():
     """QA mode should exit 1 if harness crashes (completed_ok = False)."""
     with patch("argparse.ArgumentParser.parse_args") as mock_args, \
-         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as MockRunner:
-        
+         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as mock_runner:
+
         mock_args.return_value = MagicMock(
             command="run",
             stories="stories",
@@ -105,15 +106,15 @@ def test_cli_exit_harness_crash():
             password=None, email_env=None,
             password_env=None, storage_state=None
         )
-        
-        runner_instance = MockRunner.return_value
-        
+
+        runner_instance = mock_runner.return_value
+
         async def mock_run():
             return False
         runner_instance.run.side_effect = mock_run
-        
+
         runner_instance.completed_ok = False # Harness crashed
-        
+
         # We expect sys.exit(1)
         with pytest.raises(SystemExit) as cm:
             main()

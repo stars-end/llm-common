@@ -1,5 +1,4 @@
 from llm_common.agents.auth import AuthConfig, AuthManager
-from llm_common.agents.token_utils import sign_token, verify_token
 from llm_common.agents.callbacks import (
     AgentCallbacks,
     ToolCallInfo,
@@ -51,6 +50,7 @@ from llm_common.agents.synthesizer import (
     AnswerSynthesizer,
     StructuredAnswer,
 )
+from llm_common.agents.token_utils import sign_token, verify_token
 from llm_common.agents.tool_context import ToolContextManager
 from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
 

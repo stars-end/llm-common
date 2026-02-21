@@ -7,11 +7,11 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from llm_common.agents.auth import AuthConfig, AuthManager
 from llm_common.agents.runtime.playwright_adapter import create_playwright_context
-from llm_common.agents.schemas import AgentError, SmokeRunReport, StoryResult, AgentStory
+from llm_common.agents.schemas import AgentError, AgentStory, SmokeRunReport, StoryResult
 from llm_common.agents.ui_smoke_agent import UISmokeAgent
 from llm_common.agents.utils import load_stories_from_directory
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
@@ -99,7 +99,7 @@ class UISmokeRunner:
             logger.info(
                 f"Excluding stories: {len(stories)}/{original_count} kept (excluded: {self.exclude_stories})"
             )
-            
+
             if not stories:
                 logger.error("No stories left after exclusion")
                 return False
@@ -243,19 +243,19 @@ class UISmokeRunner:
         if result.status == "skip":
             return "skip"
         if result.status == "timeout":
-            return "reproducible_timeout"
+            return "timeout"
         if result.status == "not_run":
+            msg_blob = " ".join([e.message.lower() for e in result.errors])
+            if "suite timeout" in msg_blob:
+                return "suite_timeout"
+            if "auth" in msg_blob:
+                return "auth_failed"
             return "not_run"
+
         # [EXISTING] Substring heuristics for failures (status=fail)
         all_errors = result.errors
         msg_blob = " ".join([e.message.lower() for e in all_errors])
 
-        if "timeout" in msg_blob or "timed out" in msg_blob: # Keep this as fallback? Or maybe only for actual status?
-            # If status is fail but msg says timeout, it might be a partial timeout or caught timeout.
-            # But the requirement says: "if result.status == "timeout" => return "timeout"".
-            # It also says "keep existing substring heuristics for navigation_failed/clerk_failed...".
-            # The prompt implies for OTHER statuses (like fail), keep using heuristics.
-            return "timeout"
         if "clerk" in msg_blob:
             return "clerk_failed"
         if "403" in msg_blob:
@@ -264,8 +264,10 @@ class UISmokeRunner:
             return "strict_verification_failed"
         if "navigation failed" in msg_blob:
             return "navigation_failed"
-            return "other_fail"
+        if "timeout" in msg_blob or "timed out" in msg_blob:
+            return "timeout"
 
+        return "other_fail"
     async def _run_story_with_repro(
         self,
         story: AgentStory,
@@ -326,7 +328,7 @@ class UISmokeRunner:
 
         # Final Classification
         final_result = results[-1]
-        
+
         # Populate attempts history in the final result for artifacts
         final_result.attempts = [
             {
@@ -338,7 +340,7 @@ class UISmokeRunner:
             }
             for i, r in enumerate(results)
         ]
-        
+
         final_result.classification = self._get_final_classification(results)
 
         # Write story_summary.json
@@ -673,7 +675,7 @@ class UISmokeRunner:
 
         if freq >= 2:
             return f"reproducible_{most_common}"
-        
+
         if len(results) > 1:
             return "flaky_inconclusive"
 
@@ -859,9 +861,9 @@ def main():
                 sys.exit(1)
             # Determine exit code based on QA Contract v1
             # 0: Success, 1: BAD_PRODUCT, 2: BAD_HARNESS_OR_ENV, 3: FLAKY/UNSTABLE, 4: TIMEOUT/CAPACITY
-            
+
             final_results = runner.report.story_results
-            
+
             has_product_bug = any(r.classification.startswith("reproducible_") for r in final_results)
             has_harness_failure = any(r.classification in ["auth_failed", "clerk_failed", "navigation_failed"] for r in final_results)
             has_flaky = any(r.classification == "flaky_recovered" for r in final_results)
@@ -879,7 +881,7 @@ def main():
             if has_timeout:
                  logger.warning("⏳ EXIT 4: Suite Timeout / Capacity issues")
                  sys.exit(4)
-                 
+
             logger.info("✅ EXIT 0: All stories passed or compliant with policy")
             sys.exit(0)
         sys.exit(0 if all_passed else 1)

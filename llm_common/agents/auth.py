@@ -50,8 +50,9 @@ class AuthManager:
                 return False
 
             cookie_value = self.config.cookie_value
+            secret = os.environ.get(self.config.cookie_secret_env)
+
             if self.config.cookie_signed:
-                secret = os.environ.get(self.config.cookie_secret_env)
                 if not secret:
                     logger.error(f"Secret not found in env var: {self.config.cookie_secret_env}")
                     return False
@@ -90,6 +91,11 @@ class AuthManager:
                 "secure": adapter.base_url.startswith("https"),
                 "sameSite": "Lax",
             }
+
+            # Set bypass key header for production gate
+            if secret:
+                await adapter.page.context.set_extra_http_headers({"x-test-bypass-key": secret})
+
             await adapter.page.context.add_cookies([cookie])
             logger.info(
                 f"Set bypass cookie: {self.config.cookie_name} ({'signed' if self.config.cookie_signed else 'plain'}) (domain={domain})"
