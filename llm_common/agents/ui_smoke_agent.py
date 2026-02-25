@@ -19,6 +19,90 @@ def _sanitize_error(error: AgentError) -> AgentError:
     return error
 
 
+def _is_valid_css_selector(selector: str) -> bool:
+    """Check if a string looks like a valid CSS selector.
+
+    This is a heuristic check to reject natural-language hints that LLMs
+    sometimes emit instead of proper selectors (e.g., 'Ask your advisor...'
+    or '[button] Send button (paper airplane icon)').
+
+    Valid CSS selectors should:
+    - Start with a letter, dot, hash, bracket, or colon
+    - Not contain sentence-like patterns (multiple lowercase words with spaces)
+    - Not contain markdown-like annotations in parentheses
+
+    Args:
+        selector: The selector string to validate
+
+    Returns:
+        True if the selector passes basic CSS syntax checks
+    """
+    if not selector:
+        return False
+
+    # CSS combinators that are allowed to have spaces around them
+    css_combinators = {'>', '+', '~'}
+
+    # Check for natural language patterns that indicate LLM confusion
+    # Pattern 1: Multiple words with spaces (likely a sentence/phrase)
+    # Split on spaces and check for CSS combinators
+    words = selector.split()
+    if len(words) > 2:
+        # Filter out CSS combinators and check remaining words
+        non_combinator_words = [w for w in words if w not in css_combinators]
+        # Check for consecutive lowercase words that look like natural language
+        lowercase_words = [w for w in non_combinator_words if w.islower() and len(w) > 2]
+        if len(lowercase_words) >= 2:
+            # Additional check: if all lowercase words are simple English words without
+            # CSS syntax (dots, hashes, brackets, colons), it's likely natural language
+            has_css_syntax = any(re.search(r'[.#\[:]', w) for w in non_combinator_words)
+            if not has_css_syntax:
+                return False
+
+    # Pattern 2: Markdown-like bracket annotations: [button], [element], etc.
+    # These are common in LLM descriptions but invalid CSS
+    if re.search(r'\[[a-zA-Z]+\]', selector):
+        # Exception: Valid attribute selectors like [data-testid="foo"]
+        # Invalid: [button] (no = sign, just a word)
+        bracket_content = re.findall(r'\[([^\]]+)\]', selector)
+        for content in bracket_content:
+            # Valid attribute selectors contain = or are attribute-only like [disabled]
+            if '=' not in content and not re.match(r'^[a-zA-Z-]+$', content):
+                return False
+            # Reject simple word brackets like [button], [element]
+            if '=' not in content and content.islower() and len(content) > 3:
+                # Allow pseudo-attributes like [disabled], [checked], [hidden]
+                pseudo_attrs = {'disabled', 'checked', 'hidden', 'selected', 'readonly',
+                                'required', 'autofocus', 'multiple', 'open'}
+                if content not in pseudo_attrs:
+                    return False
+
+    # Pattern 3: Parenthetical descriptions like "(paper airplane icon)"
+    if re.search(r'\([^)]*icon[^)]*\)', selector, re.IGNORECASE):
+        return False
+    if re.search(r'\([^)]*button[^)]*\)', selector, re.IGNORECASE):
+        return False
+    if re.search(r'\([^)]*(?:click|send|submit)[^)]*\)', selector, re.IGNORECASE):
+        return False
+
+    # Pattern 4: Ellipsis (common in placeholder text)
+    if '...' in selector:
+        return False
+
+    # Pattern 5: Starts with lowercase word followed by space (sentence-like)
+    # Exception: Allow if followed by CSS combinator or contains CSS syntax
+    match = re.match(r'^([a-z-]+)\s+', selector)
+    if match:
+        first_word = match.group(1)
+        # Allow if first word contains CSS syntax or is followed by combinator
+        rest = selector[match.end():]
+        if not re.search(r'[.#\[:]', first_word):
+            if not rest.startswith(('>', '+', '~')):
+                return False
+
+    return True
+
+
 def _sanitize_selector(selector: str) -> str:
     """Sanitize and validate a CSS selector.
 
@@ -26,6 +110,7 @@ def _sanitize_selector(selector: str) -> str:
     - Removes invalid '||' (not valid CSS)
     - Strips quotes that might cause parsing issues
     - Normalizes whitespace
+    - Rejects natural-language hints that aren't valid CSS
 
     Args:
         selector: Raw selector string from LLM
@@ -61,6 +146,10 @@ def _sanitize_selector(selector: str) -> str:
         selector.startswith("'") and selector.endswith("'")
     ):
         selector = selector[1:-1]
+
+    # Validate that this looks like a CSS selector, not natural language
+    if not _is_valid_css_selector(selector):
+        raise ValueError(f"Invalid CSS selector (natural language detected): {selector}")
 
     return selector
 
@@ -236,7 +325,7 @@ class UISmokeAgent:
             raw_target = step_data["click"]
             logger.info(f"  ⚡ Deterministic Click: {self._redact_secrets(raw_target)}")
             target = self._substitute_vars(raw_target)
-            
+
             # BEAD-1.3: MUI Portal detection
             if "li[data-value=" in target.lower():
                 await self.browser.click_portal(_sanitize_selector(target))
@@ -280,7 +369,7 @@ class UISmokeAgent:
         action = step_data.get("action")
         if not action:
             return False
-            
+
         action = str(action).strip()
         timeout_ms = int(step_data.get("timeout", self.action_timeout_ms))
         selector = step_data.get("selector")
@@ -367,40 +456,40 @@ class UISmokeAgent:
         deterministic_only: bool = False,
     ) -> StoryResult:
         """Run a full user story.
-        
+
         Args:
             story: The story to execute
             glm_client: GLMVisionClient instance
             output_dir: Directory for artifacts
             deterministic_only: If true, skip non-deterministic steps
-            
+
         Returns:
             StoryResult with status and evidence
         """
         logger.info(f"🚀 Running story: {story.id}")
         result = StoryResult(story_id=story.id, status="pass")
-        
+
         for step_data in story.steps:
             step_id = step_data.get("id", "unknown")
             description = step_data.get("description", "")
-            
+
             if deterministic_only and not step_data.get("deterministic", False):
                 logger.info(f"  ⏭️ Skipping non-deterministic step: {step_id}")
                 continue
-                
+
             logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
-            
+
             start_time = time.time()
             step_res = await self._run_step(story.persona, step_id, step_data, deterministic_only=deterministic_only)
             step_res.duration_ms = int((time.time() - start_time) * 1000)
-            
+
             result.step_results.append(step_res)
-            
+
             if step_res.status != "pass":
                 result.status = "fail"
                 logger.error(f"  ❌ Step {step_id} failed. Halting story.")
                 break
-                
+
         return result
 
     async def _run_step(
@@ -519,7 +608,7 @@ class UISmokeAgent:
             # If the user put secrets in description without {{ENV:...}}, that's on them.
             # We explicitly redact any known {{ENV:...}} patterns if they are not meant for LLM.
             # But here, we just want to ensure we don't accidentally reveal the VALUE.
-            
+
             prompt = (
                 f"Step: {self._redact_secrets(description)}\nCurrent URL: {current_url}\n"
                 "Goal: Complete the step described above."
