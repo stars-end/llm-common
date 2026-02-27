@@ -162,6 +162,7 @@ class UISmokeAgent:
         max_tool_iterations: int = 10,
         evidence_dir: str | None = None,
         action_timeout_ms: int = 10000,
+        stitch_manifest_path: str | None = None,
     ):
         """Initialize UI Smoke Agent.
 
@@ -172,6 +173,7 @@ class UISmokeAgent:
             max_tool_iterations: Max actions per step
             evidence_dir: Directory to save step-completion screenshots
             action_timeout_ms: Default timeout for actions in ms
+            stitch_manifest_path: Path to stitch-manifest.json for visual conformance
         """
         self.llm = glm_client
         self.browser = browser
@@ -179,9 +181,18 @@ class UISmokeAgent:
         self.max_tool_iterations = max_tool_iterations
         self.evidence_dir = Path(evidence_dir) if evidence_dir else None
         self.action_timeout_ms = action_timeout_ms
+        self.stitch_manifest_path = Path(stitch_manifest_path) if stitch_manifest_path else None
+        self.stitch_manifest = None
 
         if self.evidence_dir:
             self.evidence_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.stitch_manifest_path and self.stitch_manifest_path.exists():
+            try:
+                with open(self.stitch_manifest_path, "r") as f:
+                    self.stitch_manifest = json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load stitch-manifest.json: {e}")
 
     def _substitute_vars(self, text: str) -> str:
         """Substitute {{ENV:VAR_NAME}} from environment."""
@@ -427,6 +438,25 @@ class UISmokeAgent:
                     final_screenshot = await self.browser.screenshot()
                     verified = await self._verify_completion(final_screenshot, validation_criteria)
                     if verified:
+                        # Visual Conformance Check
+                        visual_res = await self._verify_visual_conformance(current_url, final_screenshot)
+                        if visual_res:
+                            # Add to actions_taken as a record
+                            actions_taken.append({"tool": "visual_conformance", "result": visual_res})
+                            if visual_res.get("status") == "fail":
+                                errors.append(
+                                    AgentError(
+                                        type="visual_mismatch",
+                                        severity="high",
+                                        message=f"Visual mismatch on {visual_res.get('goal_name')}: {visual_res.get('mismatchPercentage')}%",
+                                        url=current_url,
+                                        details=visual_res
+                                    )
+                                )
+                                return StepResult(
+                                    step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+                                )
+
                         return StepResult(
                             step_id=step_id,
                             status="pass",
@@ -728,6 +758,23 @@ class UISmokeAgent:
                         )
                         continue
 
+                    # Visual Conformance Check
+                    visual_res = await self._verify_visual_conformance(current_url, final_screenshot)
+                    if visual_res:
+                        # Add to actions_taken as a record
+                        actions_taken.append({"tool": "visual_conformance", "result": visual_res})
+                        if visual_res.get("status") == "fail":
+                            errors.append(
+                                AgentError(
+                                    type="visual_mismatch",
+                                    severity="high",
+                                    message=f"Visual mismatch on {visual_res.get('goal_name')}: {visual_res.get('mismatchPercentage')}%",
+                                    url=current_url,
+                                    details=visual_res
+                                )
+                            )
+                            continue
+
                     return StepResult(
                         step_id=step_id, status="pass", actions_taken=actions_taken, errors=errors
                     )
@@ -854,3 +901,105 @@ class UISmokeAgent:
         except Exception as e:
             logger.error(f"Verification call failed: {e}")
             return False  # Fail safe on error
+
+    async def _verify_visual_conformance(self, current_url: str, current_screenshot_b64: str) -> Optional[dict[str, Any]]:
+        """Verify the current page against the stitch-manifest.json visual goals."""
+        if not self.stitch_manifest:
+            return None
+
+        # Resolve the relative route
+        import urllib.parse
+        parsed_url = urllib.parse.urlparse(current_url)
+        route = parsed_url.path or "/"
+
+        # Find matching goal
+        goals = self.stitch_manifest.get("conformance_goals", [])
+        goal = next((g for g in goals if g.get("route") == route), None)
+
+        if not goal:
+            return None
+
+        logger.info(f"  👁️ Visual conformance check for route: {route}")
+
+        stitch_image_name = goal.get("stitch_image")
+        threshold = goal.get("threshold", 0.1)
+
+        # Look for the stitch image in the same directory as the manifest
+        stitch_image_path = self.stitch_manifest_path.parent / stitch_image_name
+        if not stitch_image_path.exists():
+            logger.warning(f"  ⚠️ Visual reference image missing: {stitch_image_path}")
+            return {"error": "reference_missing", "path": str(stitch_image_path)}
+
+        # Save current screenshot to temp file for comparison
+        import base64
+        import subprocess
+        import tempfile
+        
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_current:
+            tmp_current.write(base64.b64decode(current_screenshot_b64))
+            tmp_current_path = tmp_current.name
+
+        try:
+            diff_output_path = str(Path(tmp_current_path).with_suffix(".diff.png"))
+            
+            # Find the visual_diff.js script
+            # We assume it's in the llm-common/scripts directory
+            script_path = Path(__file__).parent.parent / "scripts" / "visual_diff.js"
+            if not script_path.exists():
+                 # Fallback for standard layout
+                 script_path = Path("/home/fengning/llm-common/scripts/visual_diff.js")
+
+            # Try to find node_modules for deps
+            node_path = "/home/fengning/prime-radiant-ai/frontend/node_modules"
+            if not os.path.exists(node_path):
+                 # Harder fallback
+                 node_path = str(self.stitch_manifest_path.parent / "node_modules")
+
+            cmd = [
+                "node", str(script_path),
+                str(stitch_image_path),
+                tmp_current_path,
+                diff_output_path,
+                str(threshold)
+            ]
+            
+            env = os.environ.copy()
+            env["NODE_PATH"] = node_path
+            
+            logger.info(f"  ⚡ Running visual diff: {stitch_image_name}")
+            process = subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+            if process.returncode != 0:
+                logger.error(f"  ❌ Visual diff script failed: {process.stderr}")
+                return {"error": "script_failed", "stderr": process.stderr}
+
+            try:
+                result = json.loads(process.stdout.strip())
+                mismatch_pct = float(result.get("mismatchPercentage", "100.00"))
+                
+                # Copy artifacts to evidence_dir if enabled
+                if self.evidence_dir:
+                    import shutil
+                    final_diff_name = f"diff_{goal.get('name').replace(' ', '_').lower()}.png"
+                    shutil.copy(diff_output_path, self.evidence_dir / final_diff_name)
+                    result["evidence_diff"] = str(self.evidence_dir / final_diff_name)
+
+                result["goal_name"] = goal.get("name")
+                result["threshold"] = threshold
+                
+                if mismatch_pct > (threshold * 100):
+                    logger.error(f"  ❌ Visual mismatch detected: {mismatch_pct}% (threshold: {threshold * 100}%)")
+                    result["status"] = "fail"
+                else:
+                    logger.info(f"  ✅ Visual conformance passed: {mismatch_pct}%")
+                    result["status"] = "pass"
+                
+                return result
+            except Exception as eje:
+                logger.error(f"  ❌ Failed to parse diff result: {eje}")
+                return {"error": "parse_failed", "stdout": process.stdout}
+
+        finally:
+            if os.path.exists(tmp_current_path):
+                os.unlink(tmp_current_path)
+            # We keep diff_output_path for investigation if needed, but usually it should be cleaned up too if not copied

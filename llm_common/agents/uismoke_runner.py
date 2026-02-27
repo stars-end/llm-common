@@ -43,6 +43,7 @@ class UISmokeRunner:
         exclude_stories: list[str] | None = None,
         deterministic_only: bool = False,
         fail_on_classifications: list[str] | None = None,
+        stitch_manifest_path: str | None = None,
     ):
         self.base_url = base_url
         self.stories_dir = stories_dir
@@ -63,6 +64,7 @@ class UISmokeRunner:
         self.exclude_stories = exclude_stories
         self.deterministic_only = deterministic_only
         self.fail_on_classifications = fail_on_classifications
+        self.stitch_manifest_path = stitch_manifest_path
         self.completed_ok = False
         self.banned_classification_hit = False
 
@@ -540,6 +542,7 @@ class UISmokeRunner:
                 max_tool_iterations=self.max_tool_iterations,
                 evidence_dir=str(attempt_ev_dir),
                 action_timeout_ms=self.action_timeout_ms,
+                stitch_manifest_path=self.stitch_manifest_path,
             )
 
             # Effective timeout
@@ -769,6 +772,10 @@ def main():
         action="store_true",
         help="Skip steps that aren't deterministic (useful for harness validation)",
     )
+    run_parser.add_argument(
+        "--stitch-manifest",
+        help="Path to stitch-manifest.json for visual conformance hard gates",
+    )
     run_parser.add_argument("--fail-on-classifications", type=str, help="Comma-separated classifications that should cause non-zero exit (e.g. flaky_recovered,timeout)")
 
     # New flags
@@ -849,6 +856,7 @@ def main():
             block_domains=args.block_domains,
             no_default_blocklist=args.no_default_blocklist,
             fail_on_classifications=args.fail_on_classifications.split(',') if args.fail_on_classifications else None,
+            stitch_manifest_path=args.stitch_manifest,
         )
 
         all_passed = asyncio.run(runner.run())
