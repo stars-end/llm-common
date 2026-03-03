@@ -114,7 +114,8 @@ source ~/.zshrc
 
 ```
 ~/bd/.beads/              (Central database)
-├── beads.db              (SQLite)
+├── dolt/                 (Dolt SQL backend; active data plane)
+├── beads.db              (SQLite, legacy compatibility only)
 ├── issues.jsonl          (Legacy export, compatibility only)
 ├── config.yaml           (Config)
 └── .git/                 (Multi-VM sync)
@@ -187,7 +188,7 @@ When ending a work session, MUST complete ALL steps:
 4. **PUSH TO REMOTE** (MANDATORY):
    ```bash
    git pull --rebase
-   bd sync
+   cd ~/bd && BEADS_DOLT_SERVER_HOST=100.107.173.83 BEADS_DOLT_SERVER_PORT=3307 bd dolt test --json
    git push
    git status  # MUST show "up to date with origin"
    ```
