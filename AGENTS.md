@@ -115,7 +115,7 @@ source ~/.zshrc
 ```
 ~/bd/.beads/              (Central database)
 ├── beads.db              (SQLite)
-├── issues.jsonl          (Export)
+├── issues.jsonl          (Legacy export, compatibility only)
 ├── config.yaml           (Config)
 └── .git/                 (Multi-VM sync)
 ```
@@ -415,4 +415,3 @@ dx-janitor --dry-run --verbose
 **Source**: Generated from agent-skills commit shown in header
 
 ---
-
