@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 from playwright.async_api import Browser, BrowserContext, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeout
@@ -348,6 +349,33 @@ class PlaywrightAdapter:
         except Exception as e:
             from llm_common.agents.exceptions import ElementNotFoundError
             raise ElementNotFoundError(f"Wait failed for {selector} in {frame_selector}: {e}")
+
+    async def set_cookie(
+        self,
+        name: str,
+        value: str,
+        domain: str | None = None,
+        path: str = "/",
+        secure: bool | None = None,
+        same_site: str = "Lax",
+    ) -> None:
+        """Set a cookie on the current browser context."""
+        resolved_domain = domain or urlparse(self.base_url).hostname or ""
+        resolved_secure = self.base_url.startswith("https") if secure is None else secure
+
+        cookie = {
+            "name": name,
+            "value": value,
+            "domain": resolved_domain,
+            "path": path,
+            "secure": resolved_secure,
+            "sameSite": same_site,
+        }
+        await self.page.context.add_cookies([cookie])
+
+    async def clear_cookies(self) -> None:
+        """Clear all cookies on the current browser context."""
+        await self.page.context.clear_cookies()
 
 
 async def create_playwright_context(

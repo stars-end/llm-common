@@ -1,13 +1,22 @@
-name: llm-uon Verification
-description: Automated verification for feature llm-uon
+id: story-llm-uon
+persona: Generic QA user verifying llm-uon baseline route
 
 steps:
-  - name: Login
+  - id: step-1-open-login
+    deterministic: true
+    action: navigate
     path: /login
-    action: check_element
-    selector: "input[name='email']"
+    description: Open login page.
 
-  # TODO: Add specific feature verification steps here
-  # - name: Check New Feature
-  #   path: /dashboard
-  #   ...
+  - id: step-2-wait-email
+    deterministic: true
+    action: wait_for_selector
+    selector: "input[name='email']"
+    timeout: 30000
+    description: Verify email input is visible.
+
+metadata:
+  tags:
+    - sample
+    - llm-uon
+  priority: 2

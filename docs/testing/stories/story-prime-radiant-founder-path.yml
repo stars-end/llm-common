@@ -1,0 +1,118 @@
+id: story-prime-radiant-founder-path
+persona: Prime Radiant founder validating Plaid, analytics, chat, and artifact flow
+
+steps:
+  - id: step-1-clear-session
+    deterministic: true
+    action: clear_cookies
+    description: Start from a clean browser session.
+
+  - id: step-2-bypass-disconnected
+    deterministic: true
+    action: set_cookie
+    name: x-test-user
+    value: "{{ENV:PR_DISCONNECTED_BYPASS_TOKEN}}"
+    domain: auto
+    path: /
+    same_site: Lax
+    description: Apply disconnected bypass token.
+
+  - id: step-3-open-v2-disconnected
+    deterministic: true
+    navigate: /v2
+    description: Load V2 in disconnected state.
+
+  - id: step-4-wait-connection-rail
+    deterministic: true
+    action: wait_for_selector
+    selector: '[data-testid="connection-rail-status"]'
+    timeout: 30000
+    description: Confirm disconnected V2 state is visible via connection rail.
+
+  - id: step-5-open-brokerage-launch
+    deterministic: true
+    action: navigate
+    path: /brokerage?launch=1
+    description: Launch Plaid flow from brokerage launch route.
+
+  - id: step-6-wait-plaid-iframe
+    deterministic: true
+    action: wait_for_selector
+    selector: iframe[title="Plaid Link"]
+    timeout: 45000
+    description: Verify Plaid iframe appears.
+
+  - id: step-7-bypass-connected
+    deterministic: true
+    action: set_cookie
+    name: x-test-user
+    value: "{{ENV:PR_CONNECTED_BYPASS_TOKEN}}"
+    domain: auto
+    path: /
+    same_site: Lax
+    description: Swap into connected bypass token.
+
+  - id: step-8-open-v2-connected
+    deterministic: true
+    navigate: /v2
+    description: Load V2 in connected state.
+
+  - id: step-9-wait-connected-affordance
+    deterministic: true
+    action: wait_for_selector
+    selector: '[data-testid="connection-rail-manage"]'
+    timeout: 30000
+    description: Confirm connected brokerage manage affordance exists.
+
+  - id: step-10-wait-analytics-context
+    deterministic: true
+    action: wait_for_selector
+    selector: '[data-testid="portfolio-snapshot-artifact"]'
+    timeout: 30000
+    description: Confirm analytics-backed portfolio snapshot context exists.
+
+  - id: step-11-enter-aapl-request
+    deterministic: true
+    action: type
+    selector: '[data-testid="advisor-chat-input"]'
+    text: Give me a graph of the last 1 year of AAPL stock price.
+    description: Enter chart request in advisor input.
+
+  - id: step-12-send-aapl-request
+    deterministic: true
+    action: click
+    selector: '[data-testid="advisor-chat-send"]'
+    description: Send chat request for 1-year AAPL graph.
+
+  - id: step-13-wait-assistant-response
+    deterministic: true
+    action: wait_for_selector
+    selector: '[data-testid="advisor-chat-assistant-message"]'
+    timeout: 45000
+    description: Confirm assistant response appears.
+
+  - id: step-14-wait-artifact-render
+    deterministic: true
+    action: wait_for_selector
+    selector: '[data-testid="advisor-artifact"]'
+    timeout: 45000
+    description: Confirm left-pane artifact container appears.
+
+  - id: step-15-assert-aapl-evidence
+    deterministic: true
+    action: assert_text
+    selector: body
+    text: AAPL
+    description: Confirm AAPL appears in rendered output.
+
+metadata:
+  tags:
+    - prime-radiant
+    - founder-path
+    - plaid
+    - analytics
+    - artifact
+    - chat
+  priority: 0
+  auth_mode: none
+  timeout_seconds: 900
