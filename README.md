@@ -137,6 +137,24 @@ UISmoke is a shared QA-engineer harness for executing autonomous UI stories usin
 uismoke run --stories ./docs/TESTING/STORIES --base-url https://dev.example.ai --output ./artifacts/verification
 ```
 
+Prime Radiant founder-path example (Plaid launch + connected analytics + AAPL artifact):
+
+```bash
+export PR_DISCONNECTED_BYPASS_TOKEN="<disconnected test token>"
+export PR_CONNECTED_BYPASS_TOKEN="<connected test token>"
+
+# Deterministic harness check (no model-led actions)
+ZAI_API_KEY=dummy \
+uismoke run \
+  --stories ./docs/testing/stories \
+  --only-stories story-prime-radiant-founder-path \
+  --base-url https://frontend-dev-f8a3.up.railway.app \
+  --output ./artifacts/verification \
+  --auth-mode none \
+  --deterministic-only \
+  --mode qa
+```
+
 Features:
 ### QA mode vs Gate mode
 - `--mode qa`: Exit 0 if the harness completed and produced artifacts, even if product failures occurred. Use this for discovery/nightly runs where you want to triage all results. Exit 1 only on harness crash or misconfiguration.

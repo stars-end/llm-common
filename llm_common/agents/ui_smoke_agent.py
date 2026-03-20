@@ -150,6 +150,20 @@ class BrowserAdapter(Protocol):
     async def frame_wait_for_selector(self, frame_selector: str, selector: str, timeout_ms: int = 5000) -> None:
         ...
 
+    async def set_cookie(
+        self,
+        name: str,
+        value: str,
+        domain: str | None = None,
+        path: str = "/",
+        secure: bool | None = None,
+        same_site: str = "Lax",
+    ) -> None:
+        ...
+
+    async def clear_cookies(self) -> None:
+        ...
+
 
 class UISmokeAgent:
     """Agent that executes UI smoke tests using vision + tool calling."""
@@ -348,6 +362,45 @@ class UISmokeAgent:
                     "assert_text",
                     {"selector": self._redact_secrets(sel), "text": self._redact_secrets(required)},
                 )
+                return True
+
+            if action == "set_cookie":
+                cookie_name = self._substitute_vars(step_data.get("name") or "")
+                cookie_value = self._substitute_vars(step_data.get("value") or "")
+                cookie_domain = self._substitute_vars(step_data.get("domain") or "auto")
+                cookie_path = self._substitute_vars(step_data.get("path") or "/")
+                same_site = self._substitute_vars(step_data.get("same_site") or "Lax")
+                secure_raw = step_data.get("secure")
+                secure: bool | None = bool(secure_raw) if secure_raw is not None else None
+
+                if cookie_domain == "auto":
+                    cookie_domain = None
+
+                logger.info(f"  ⚡ Deterministic Set Cookie: {self._redact_secrets(cookie_name)}")
+                await self.browser.set_cookie(
+                    name=cookie_name,
+                    value=cookie_value,
+                    domain=cookie_domain,
+                    path=cookie_path,
+                    secure=secure,
+                    same_site=same_site,
+                )
+                _record(
+                    "set_cookie",
+                    {
+                        "name": self._redact_secrets(cookie_name),
+                        "value": "[REDACTED]",
+                        "domain": self._redact_secrets(cookie_domain or "auto"),
+                        "path": self._redact_secrets(cookie_path),
+                        "same_site": self._redact_secrets(same_site),
+                    },
+                )
+                return True
+
+            if action == "clear_cookies":
+                logger.info("  ⚡ Deterministic Clear Cookies")
+                await self.browser.clear_cookies()
+                _record("clear_cookies", {})
                 return True
 
             # Unhandled action => let LLM handle it.
