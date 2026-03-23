@@ -137,7 +137,7 @@ UISmoke is a shared QA-engineer harness for executing autonomous UI stories usin
 uismoke run --stories ./docs/TESTING/STORIES --base-url https://dev.example.ai --output ./artifacts/verification
 ```
 
-Prime Radiant founder-path example (Plaid launch + connected analytics + AAPL artifact):
+Prime Radiant founder-path example (Plaid launch + connected analytics + AAPL artifact + imported holdings account-name assertion):
 
 ```bash
 export PR_DISCONNECTED_BYPASS_TOKEN="<disconnected test token>"
@@ -154,6 +154,8 @@ uismoke run \
   --deterministic-only \
   --mode qa
 ```
+
+This founder-path story is intended as deterministic regression support, not release certification. Use `--mode qa` for evidence collection and keep authoritative release decisions in the primary product contract gate.
 
 Features:
 ### QA mode vs Gate mode

@@ -105,6 +105,26 @@ steps:
     text: AAPL
     description: Confirm AAPL appears in rendered output.
 
+  - id: step-16-enter-imported-holdings-request
+    deterministic: true
+    action: type
+    selector: '[data-testid="advisor-chat-input"]'
+    text: Create a table artifact of my imported holdings.
+    description: Enter imported holdings artifact request in advisor input.
+
+  - id: step-17-send-imported-holdings-request
+    deterministic: true
+    action: click
+    selector: '[data-testid="advisor-chat-send"]'
+    description: Send chat request for imported holdings artifact.
+
+  - id: step-18-wait-imported-holdings-account-name
+    deterministic: true
+    action: assert_text
+    selector: body
+    text: Test Brokerage Account
+    description: Confirm the imported holdings artifact renders the canonical brokerage account name.
+
 metadata:
   tags:
     - prime-radiant

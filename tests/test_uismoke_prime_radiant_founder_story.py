@@ -16,6 +16,7 @@ def test_prime_radiant_founder_story_contract():
     assert "step-6-wait-plaid-iframe" in step_ids
     assert "step-10-wait-analytics-context" in step_ids
     assert "step-14-wait-artifact-render" in step_ids
+    assert "step-18-wait-imported-holdings-account-name" in step_ids
 
     set_cookie_steps = [s for s in story["steps"] if s.get("action") == "set_cookie"]
     assert len(set_cookie_steps) == 2
@@ -32,5 +33,17 @@ def test_prime_radiant_founder_story_contract():
     assert any(
         s.get("action") == "wait_for_selector"
         and s.get("selector") == '[data-testid="advisor-artifact"]'
+        for s in story["steps"]
+    )
+
+    assert any(
+        s.get("selector") == '[data-testid="advisor-chat-input"]'
+        and "imported holdings" in s.get("text", "").lower()
+        for s in story["steps"]
+    )
+
+    assert any(
+        s.get("action") == "assert_text"
+        and s.get("text") == "Test Brokerage Account"
         for s in story["steps"]
     )
