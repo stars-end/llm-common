@@ -274,29 +274,31 @@ Triage implications:
 
 ### Recommendation
 
-Create a new canonical repo-local substrate viewer story pack in affordabot and wire it into repo-local Make targets. Do not put these stories in `llm-common`.
+Rebase Batch 2 onto the already-published repo-local affordabot substrate viewer story pack and wire that pack into the canonical repo-local Make targets. Do not put these stories in `llm-common`, and do not introduce a second parallel pack layout from `llm-common`.
 
 ### Why
 
 Affordabot already has the right product surface and APIs, but its current top-level story pack still describes the older admin-console truth instead of substrate viewer truth. The coordination spec for PR #393 explicitly calls this out.
 
-### Recommended Story Pack Shape
+### Story Pack Constraint
 
-Recommended repo-local path:
+Batch 2 must assume the substrate pack already exists in affordabot’s repo-local testing surface, even if the current local snapshot used for this memo does not yet show it.
 
-- `docs/TESTING/STORIES/substrate_viewer/README.md`
-- `docs/TESTING/STORIES/substrate_viewer/substrate_runs_overview.yml`
-- `docs/TESTING/STORIES/substrate_viewer/substrate_failure_buckets.yml`
-- `docs/TESTING/STORIES/substrate_viewer/substrate_raw_row_detail.yml`
+That means Batch 2 should:
 
-Recommended top-level README change later:
+- discover and reuse the published affordabot substrate pack location and story IDs
+- update the affordabot story index to point at that pack if needed
+- adjust Make targets to call that pack directly
 
-- make `docs/TESTING/STORIES/README.md` an index
-- link both legacy admin stories and the new substrate pack
+Batch 2 should not:
+
+- invent a second subtree
+- duplicate the published substrate stories under a new layout
+- move the pack into `llm-common`
 
 ### Recommended Affordabot Make Surface
 
-Add repo-local targets such as:
+Add or update repo-local targets such as:
 
 - `verify-substrate-gate`
   - deterministic lane
@@ -309,7 +311,7 @@ Add repo-local targets such as:
 - `verify-substrate-triage`
   - shared triage against latest substrate artifact set
 
-Do not immediately replace all existing affordabot story targets. Add the substrate surface as a first-class pack, prove it, then decide whether broader story-pack reorganization is worthwhile.
+Do not immediately replace all existing affordabot story targets. Promote the already-published substrate surface into the first-class verification path, prove it, then decide whether broader story-pack reorganization is worthwhile.
 
 ### Affordabot Gate Design
 
@@ -422,15 +424,15 @@ Goal:
 
 Scope:
 
-- add repo-local substrate story-pack README + story files
-- add repo-local substrate Make targets
+- reuse the already-published repo-local substrate story pack
+- update repo-local substrate Make targets around that existing pack
 - wire deterministic substrate gate and exploratory/nightly substrate surfaces
 - keep stories in affordabot
 
 Acceptance:
 
 - deterministic substrate gate covers run list, failure buckets, and raw row detail
-- substrate pack is reachable from affordabot’s story index
+- the published substrate pack is reachable from affordabot’s story index
 - no story assets are added to `llm-common`
 
 ### Batch 3: Prime Alignment Without Governance Regression
