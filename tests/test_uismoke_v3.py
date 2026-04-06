@@ -74,6 +74,36 @@ def test_classification_single_failure():
     classification = runner._get_final_classification([result1])
     assert classification == "single_timeout"
 
+
+@pytest.mark.asyncio
+async def test_deterministic_lane_does_not_initialize_glm(tmp_path):
+    with patch("llm_common.agents.uismoke_runner.load_stories_from_directory") as mock_load:
+        story = AgentStory(id="s1", persona="p1", steps=[{"id": "st-1", "deterministic": True, "navigate": "/"}])
+        mock_load.return_value = [story]
+
+        runner = UISmokeRunner(
+            base_url="http://localhost",
+            stories_dir=tmp_path / "stories",
+            output_dir=tmp_path / "out",
+            auth_config=MagicMock(mode="none"),
+            deterministic_only=True,
+        )
+
+        with patch("llm_common.agents.uismoke_runner.GLMVisionClient") as mock_glm, \
+             patch("llm_common.agents.uismoke_runner.AuthManager"), \
+             patch.object(runner, "_run_story_with_repro") as mock_run_story, \
+             patch.object(runner, "_write_artifacts"):
+            mock_run_story.return_value = {
+                "result": StoryResult(story_id="s1", status="pass"),
+                "authed_shared": None,
+                "guest_shared": None,
+            }
+            with patch.dict(os.environ, {}, clear=True):
+                ok = await runner.run()
+
+        assert ok is True
+        mock_glm.assert_not_called()
+
 # --- A2: Exclude Stories ---
 
 @pytest.mark.asyncio
@@ -144,4 +174,3 @@ async def test_env_substitution_and_redaction():
         # Redaction of value (if we were to implement it, but we only redact the placeholder pattern currently in _redact_secrets)
         # The prompt says: "Ensure these actions substitute {{ENV:...}} only in deterministic paths, never in LLM prompts/logs"
         # The agent logic keeps placeholders in description for LLM prompts, but substitutes for deterministic actions.
-

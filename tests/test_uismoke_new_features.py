@@ -60,6 +60,53 @@ async def test_deterministic_only_fails_on_deterministic_failure():
     assert result.status == "fail"
     assert result.step_results[0].status == "fail"
 
+
+@pytest.mark.asyncio
+async def test_deterministic_only_can_run_without_llm_provider():
+    browser = MagicMock()
+    browser.get_current_url = AsyncMock(return_value="http://localhost/home")
+    browser.screenshot = AsyncMock(return_value="b64")
+    browser.get_visible_text = AsyncMock(return_value="Dashboard Home")
+    browser.navigate = AsyncMock()
+
+    agent = UISmokeAgent(glm_client=None, browser=browser, base_url="http://localhost")
+
+    story = AgentStory(
+        id="det-no-llm",
+        persona="tester",
+        steps=[
+            {
+                "id": "s1",
+                "deterministic": True,
+                "navigate": "/home",
+                "validation_criteria": ["Dashboard Home"],
+            }
+        ],
+    )
+
+    result = await agent.run_story(story, deterministic_only=True)
+    assert result.status == "pass"
+    assert len(result.step_results) == 1
+    assert result.step_results[0].status == "pass"
+
+
+@pytest.mark.asyncio
+async def test_deterministic_visible_text_fallback_ignores_hidden_html_content():
+    browser = MagicMock()
+    browser.get_visible_text = AsyncMock(return_value="Dashboard Home")
+    browser.get_content = AsyncMock(
+        return_value="<html><body><div style='display:none'>Hidden Marker</div>Dashboard Home</body></html>"
+    )
+    agent = UISmokeAgent(glm_client=None, browser=browser, base_url="http://localhost")
+
+    # Hidden marker in HTML should not satisfy visible-text verification.
+    hidden_only = await agent._verify_completion("b64", ["Hidden Marker"])
+    assert hidden_only is False
+
+    # Visible marker should satisfy verification.
+    visible_marker = await agent._verify_completion("b64", ["Dashboard Home"])
+    assert visible_marker is True
+
 def test_fail_on_classifications():
     runner = UISmokeRunner(
         base_url="http://localhost",

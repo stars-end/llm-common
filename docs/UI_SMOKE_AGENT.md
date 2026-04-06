@@ -12,6 +12,12 @@ The UI Smoke Agent combines:
 
 This is designed for **milestone-triggered smoke tests**, not per-PR testing. Use it to validate critical user journeys against dev/staging/prod environments.
 
+## Lane Contract
+
+- **Deterministic lane** (`--deterministic-only`): provider-free path for gating and harness validation. Does not require `ZAI_API_KEY`.
+- **Exploratory lane** (default): enables GLM vision/tool-calling and requires `ZAI_API_KEY`.
+- **Execution backend**: Playwright remains the in-core browser backend for both lanes.
+
 ## Architecture
 
 ```
