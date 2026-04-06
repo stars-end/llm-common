@@ -186,6 +186,7 @@ async def test_only_stories_filtering(mock_browser, mock_llm, tmp_path):
         output_dir=tmp_path / "out",
         auth_config=AuthConfig(mode="none"),
         only_stories=["story-1"],
+        deterministic_only=True,
     )
 
     # We must mock _run_story_with_repro to avoid real execution
@@ -197,15 +198,52 @@ async def test_only_stories_filtering(mock_browser, mock_llm, tmp_path):
         }
     )
 
-    # Add ZAI_API_KEY for GLM client init
-    os.environ["ZAI_API_KEY"] = "fake"
-
     await runner.run()
 
     # Verify only story-1 was run
     assert runner._run_story_with_repro.call_count == 1
     call_args = runner._run_story_with_repro.call_args[0]
     assert call_args[0].id == "story-1"
+
+
+@pytest.mark.asyncio
+async def test_deterministic_run_writes_lane_metadata_without_provider(tmp_path):
+    from llm_common.agents.auth import AuthConfig
+    from llm_common.agents.uismoke_runner import UISmokeRunner
+
+    stories_dir = tmp_path / "stories"
+    stories_dir.mkdir()
+    (stories_dir / "story-1.yml").write_text(
+        "id: story-1\ndescription: d\npersona: admin\nsteps:\n  - id: s1\n    deterministic: true\n    navigate: /home"
+    )
+
+    runner = UISmokeRunner(
+        base_url="http://test",
+        stories_dir=stories_dir,
+        output_dir=tmp_path / "out",
+        auth_config=AuthConfig(mode="none"),
+        deterministic_only=True,
+    )
+
+    runner._run_story_with_repro = AsyncMock(
+        return_value={
+            "result": StoryResult(story_id="story-1", status="pass"),
+            "authed_shared": None,
+            "guest_shared": None,
+        }
+    )
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("ZAI_API_KEY", raising=False)
+        success = await runner.run()
+
+    assert success is True
+
+    run_json = runner.run_output_dir / "run.json"
+    data = json.loads(run_json.read_text())
+    assert data["metadata"]["lane"] == "deterministic"
+    assert data["metadata"]["backend"] == "playwright"
+    assert data["metadata"]["provider"] == "none"
 
 
 @pytest.mark.asyncio

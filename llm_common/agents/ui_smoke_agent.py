@@ -170,7 +170,7 @@ class UISmokeAgent:
 
     def __init__(
         self,
-        glm_client: LLMClient,
+        glm_client: LLMClient | None,
         browser: BrowserAdapter,
         base_url: str,
         max_tool_iterations: int = 10,
@@ -415,16 +415,12 @@ class UISmokeAgent:
     async def run_story(
         self,
         story: AgentStory,
-        glm_client: Any,
-        output_dir: Path,
         deterministic_only: bool = False,
     ) -> StoryResult:
         """Run a full user story.
         
         Args:
             story: The story to execute
-            glm_client: GLMVisionClient instance
-            output_dir: Directory for artifacts
             deterministic_only: If true, skip non-deterministic steps
             
         Returns:
@@ -439,6 +435,9 @@ class UISmokeAgent:
             
             if deterministic_only and not step_data.get("deterministic", False):
                 logger.info(f"  ⏭️ Skipping non-deterministic step: {step_id}")
+                result.step_results.append(
+                    StepResult(step_id=step_id, status="skip", actions_taken=[], errors=[])
+                )
                 continue
                 
             logger.info(f"  Step: {step_id} - {self._redact_secrets(description)}")
@@ -515,6 +514,18 @@ class UISmokeAgent:
         if deterministic_only:
             logger.warning(f"  ⏭️ Step {step_id} is not deterministic; skipping.")
             return StepResult(step_id=step_id, status="skip", actions_taken=actions_taken)
+
+        if self.llm is None:
+            errors.append(
+                AgentError(
+                    type="llm_not_configured",
+                    severity="blocker",
+                    message="Exploratory step requires LLM provider, but none is configured.",
+                )
+            )
+            return StepResult(
+                step_id=step_id, status="fail", actions_taken=actions_taken, errors=errors
+            )
 
         for i in range(self.max_tool_iterations):
             # 1. Capture state
@@ -861,6 +872,26 @@ class UISmokeAgent:
     async def _verify_completion(self, screenshot_b64: str, validation_criteria: list[str]) -> bool:
         """Strictly verify that required markers are present in the final screenshot (P0: affordabot-r7p)."""
         if not validation_criteria:
+            return True
+
+        if self.llm is None:
+            # Deterministic/provider-free fallback: validate against live DOM text.
+            try:
+                content = await self.browser.get_content()
+            except Exception as e:
+                logger.error(f"Deterministic verification content capture failed: {e}")
+                return False
+            normalized = re.sub(r"<[^>]+>", " ", content).lower()
+            normalized = re.sub(r"\s+", " ", normalized)
+            missing = [
+                criterion
+                for criterion in validation_criteria
+                if criterion.lower().strip() not in normalized
+            ]
+            if missing:
+                logger.warning(f"  ❌ Deterministic verification failed. Missing markers: {missing}")
+                return False
+            logger.info("  ✅ Deterministic verification passed.")
             return True
 
         prompt = "EXACT TEXT EXTRACTION TASK:\nExtract all visible text, numbers, and labels from this UI screenshot. Provide a clean list of text fragments you see. If the image is blank or black, say 'EMPTY'."

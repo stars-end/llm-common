@@ -112,13 +112,19 @@ class UISmokeRunner:
         story_results: list[StoryResult] = []
         suite_start_time = time.monotonic()
 
-        # LLM Initialization (using ZAI_API_KEY)
-        api_key = os.environ.get("ZAI_API_KEY")
-        if not api_key:
-            logger.error("ZAI_API_KEY required")
-            return False
+        lane = "deterministic" if self.deterministic_only else "exploratory"
+        backend = "playwright"
+        provider = "none"
 
-        glm_client = GLMVisionClient(GLMConfig(api_key=api_key))
+        # Provider startup is lane-gated: deterministic runs are provider-free.
+        glm_client = None
+        if not self.deterministic_only:
+            api_key = os.environ.get("ZAI_API_KEY")
+            if not api_key:
+                logger.error("ZAI_API_KEY required for exploratory lane")
+                return False
+            glm_client = GLMVisionClient(GLMConfig(api_key=api_key))
+            provider = "zai_glm_vision"
 
         # Context Management
         # We'll use one 'authed' context and one 'guest' context if needed
@@ -183,7 +189,8 @@ class UISmokeRunner:
                 await authed_browser.close()
             if guest_browser:
                 await guest_browser.close()
-            await glm_client.close()
+            if glm_client:
+                await glm_client.close()
 
         # Generate Reports
         completed_at = datetime.now(UTC).isoformat()
@@ -209,6 +216,9 @@ class UISmokeRunner:
                 "story_timeout_seconds": self.story_timeout,
                 "auth_mode": self.auth_config.mode,
                 "cookie_signed": self.auth_config.cookie_signed,
+                "lane": lane,
+                "backend": backend,
+                "provider": provider,
             },
         )
 
@@ -269,7 +279,7 @@ class UISmokeRunner:
     async def _run_story_with_repro(
         self,
         story: AgentStory,
-        glm_client: Any,
+        glm_client: Any | None,
         suite_start_time: float,
         authed_shared: Any,
         guest_shared: Any,
@@ -347,6 +357,9 @@ class UISmokeRunner:
             "status": final_result.status,
             "classification": final_result.classification,
             "attempts_count": len(results),
+            "lane": "deterministic" if deterministic_only else "exploratory",
+            "backend": "playwright",
+            "provider": "none" if deterministic_only else "zai_glm_vision",
             "final_attempt": final_result.model_dump(mode="json"),
         }
         with open(story_ev_dir / "story_summary.json", "w") as f:
@@ -367,7 +380,7 @@ class UISmokeRunner:
     async def _run_attempt(
         self,
         story,
-        glm_client,
+        glm_client: Any | None,
         suite_start_time,
         attempt_ev_dir,
         authed_shared,
@@ -568,8 +581,6 @@ class UISmokeRunner:
                 result = await asyncio.wait_for(
                     agent.run_story(
                         story,
-                        glm_client,
-                        attempt_ev_dir,
                         deterministic_only=deterministic_only,
                     ),
                     timeout=eff_timeout
