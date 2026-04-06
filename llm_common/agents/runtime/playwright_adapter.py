@@ -287,6 +287,12 @@ class PlaywrightAdapter:
     async def get_content(self) -> str:
         return await self.page.content()
 
+    async def get_visible_text(self) -> str:
+        """Return visible text only (innerText), with textContent fallback."""
+        return await self.page.evaluate(
+            "() => (document.body?.innerText ?? document.body?.textContent ?? '').toString()"
+        )
+
     async def get_text(self, selector: str) -> str:
         """Return inner text of an element."""
         return await self.page.inner_text(selector)

@@ -135,6 +135,9 @@ class BrowserAdapter(Protocol):
     async def get_content(self) -> str:
         ...
 
+    async def get_visible_text(self) -> str:
+        ...
+
     async def get_text(self, selector: str) -> str:
         ...
 
@@ -875,13 +878,13 @@ class UISmokeAgent:
             return True
 
         if self.llm is None:
-            # Deterministic/provider-free fallback: validate against live DOM text.
+            # Deterministic/provider-free fallback: validate against visible page text only.
             try:
-                content = await self.browser.get_content()
+                visible_text = await self.browser.get_visible_text()
             except Exception as e:
-                logger.error(f"Deterministic verification content capture failed: {e}")
+                logger.error(f"Deterministic verification visible-text capture failed: {e}")
                 return False
-            normalized = re.sub(r"<[^>]+>", " ", content).lower()
+            normalized = visible_text.lower()
             normalized = re.sub(r"\s+", " ", normalized)
             missing = [
                 criterion
