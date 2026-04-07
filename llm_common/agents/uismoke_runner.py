@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, List, Optional
 
-from llm_common.agents.auth import AuthConfig, AuthManager
+from llm_common.agents.auth import AuthConfig, AuthManager, resolve_story_runtime_config
 from llm_common.agents.runtime.playwright_adapter import create_playwright_context
 from llm_common.agents.schemas import AgentError, SmokeRunReport, StoryResult, AgentStory
 from llm_common.agents.ui_smoke_agent import UISmokeAgent
@@ -215,6 +215,7 @@ class UISmokeRunner:
                 "suite_timeout_seconds": self.suite_timeout,
                 "story_timeout_seconds": self.story_timeout,
                 "auth_mode": self.auth_config.mode,
+                "bootstrap": self.auth_config.bootstrap,
                 "cookie_signed": self.auth_config.cookie_signed,
                 "lane": lane,
                 "backend": backend,
@@ -352,11 +353,14 @@ class UISmokeRunner:
         final_result.classification = self._get_final_classification(results)
 
         # Write story_summary.json
+        runtime_config = resolve_story_runtime_config(story.metadata, self.auth_config)
         summary = {
             "story_id": story.id,
             "status": final_result.status,
             "classification": final_result.classification,
             "attempts_count": len(results),
+            "auth_mode": runtime_config.auth_mode,
+            "bootstrap": runtime_config.bootstrap,
             "lane": "deterministic" if deterministic_only else "exploratory",
             "backend": "playwright",
             "provider": "none" if deterministic_only else "zai_glm_vision",
@@ -393,12 +397,12 @@ class UISmokeRunner:
         guest_browser, guest_context, guest_adapter = guest_shared
 
         persona = story.persona.lower()
-        story_auth_mode = story.metadata.get("auth_mode")
-        requires_real_clerk = story.metadata.get("requires_real_clerk", False)
-        redirect_check_path = story.metadata.get("auth_redirect_check_path")
+        runtime_config = resolve_story_runtime_config(story.metadata, self.auth_config)
+        story_auth_mode = runtime_config.auth_mode
+        redirect_check_path = runtime_config.auth_redirect_check_path
 
         is_guest = "guest" in persona or story.metadata.get("logout") is True
-        is_ui_login = story_auth_mode == "ui_login" or requires_real_clerk
+        is_ui_login = runtime_config.uses_ui_login
 
         current_adapter = None
         temp_context = None
@@ -410,6 +414,8 @@ class UISmokeRunner:
             if is_ui_login:
                 login_config = AuthConfig(
                     mode="ui_login",
+                    bootstrap=runtime_config.bootstrap,
+                    auth_redirect_check_path=runtime_config.auth_redirect_check_path,
                     email=self.auth_config.email,
                     password=self.auth_config.password,
                     email_env=self.auth_config.email_env,
@@ -742,6 +748,14 @@ def main():
         choices=["none", "cookie_bypass", "ui_login", "storage_state"],
         default="none",
     )
+    run_parser.add_argument(
+        "--bootstrap",
+        help="Generic bootstrap name for shared-runner setup (for example: ui_login)",
+    )
+    run_parser.add_argument(
+        "--auth-redirect-check-path",
+        help="Optional pre-bootstrap redirect check path for real-auth flows",
+    )
     run_parser.add_argument("--cookie-name", help="Bypass cookie name")
     run_parser.add_argument("--cookie-value", help="Bypass cookie value (e.g. 'admin')")
     run_parser.add_argument(
@@ -828,6 +842,8 @@ def main():
     if args.command == "run":
         auth_config = AuthConfig(
             mode=args.auth_mode,
+            bootstrap=args.bootstrap,
+            auth_redirect_check_path=args.auth_redirect_check_path,
             cookie_name=args.cookie_name,
             cookie_value=args.cookie_value,
             cookie_domain=args.cookie_domain,

@@ -16,6 +16,8 @@ def test_cli_exit_qa_mode_with_failures():
             output="out",
             mode="qa",
             auth_mode="none",
+            bootstrap=None,
+            auth_redirect_check_path=None,
             # Add other required args with defaults
             repro=1, headless=True, tracing=False,
             suite_timeout=5400, story_timeout=900,
@@ -55,6 +57,8 @@ def test_cli_exit_gate_mode_with_failures():
             output="out",
             mode="gate",
             auth_mode="none",
+            bootstrap=None,
+            auth_redirect_check_path=None,
              # Add other required args with defaults
             repro=1, headless=True, tracing=False,
             suite_timeout=5400, story_timeout=900,
@@ -93,6 +97,8 @@ def test_cli_exit_harness_crash():
             output="out",
             mode="qa",
             auth_mode="none",
+            bootstrap=None,
+            auth_redirect_check_path=None,
              # Add other required args with defaults
             repro=1, headless=True, tracing=False,
             suite_timeout=5400, story_timeout=900,
@@ -118,3 +124,50 @@ def test_cli_exit_harness_crash():
         with pytest.raises(SystemExit) as cm:
             main()
         assert cm.value.code == 1
+
+
+def test_cli_passes_generic_bootstrap_config_to_runner():
+    """CLI should pass generic auth/bootstrap inputs without product labels."""
+    with patch("argparse.ArgumentParser.parse_args") as mock_args, \
+         patch("llm_common.agents.uismoke_runner.UISmokeRunner") as MockRunner:
+
+        mock_args.return_value = MagicMock(
+            command="run",
+            stories="stories",
+            base_url="http://localhost",
+            output="out",
+            mode="qa",
+            auth_mode="none",
+            bootstrap="ui_login",
+            auth_redirect_check_path="/v2",
+            repro=1, headless=True, tracing=False,
+            suite_timeout=5400, story_timeout=900,
+            max_tool_iterations=12, nav_timeout_ms=30000,
+            action_timeout_ms=30000, block_domains=None,
+            no_default_blocklist=False, only_stories=None,
+            cookie_name=None, cookie_value=None,
+            cookie_domain=None, cookie_signed=False,
+            cookie_secret_env=None, email=None,
+            password=None, email_env=None,
+            password_env=None, storage_state=None,
+            exclude_stories=None, deterministic_only=False,
+            fail_on_classifications=None,
+        )
+
+        runner_instance = MockRunner.return_value
+
+        async def mock_run():
+            return True
+
+        runner_instance.run.side_effect = mock_run
+        runner_instance.completed_ok = True
+        runner_instance.report = MagicMock(story_results=[])
+
+        with pytest.raises(SystemExit) as cm:
+            main()
+
+        assert cm.value.code == 0
+        auth_config = MockRunner.call_args.kwargs["auth_config"]
+        assert auth_config.mode == "none"
+        assert auth_config.bootstrap == "ui_login"
+        assert auth_config.auth_redirect_check_path == "/v2"

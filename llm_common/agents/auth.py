@@ -2,11 +2,14 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal
 
 logger = logging.getLogger(__name__)
 
 AuthMode = Literal["none", "cookie_bypass", "ui_login", "storage_state"]
+LaneMode = Literal["deterministic", "exploratory"]
+UI_LOGIN_BOOTSTRAP = "ui_login"
 
 if TYPE_CHECKING:
     from llm_common.agents.runtime.playwright_adapter import PlaywrightAdapter
@@ -17,6 +20,8 @@ else:
 @dataclass
 class AuthConfig:
     mode: AuthMode = "none"
+    bootstrap: str | None = None
+    auth_redirect_check_path: str | None = None
     # For cookie_bypass
     cookie_name: str | None = None
     cookie_value: str | None = None
@@ -31,6 +36,62 @@ class AuthConfig:
     login_path: str = "/sign-in"
     # For storage_state
     storage_state_path: str | None = None
+
+    def with_runtime_overrides(self, runtime: "StoryRuntimeConfig") -> "AuthConfig":
+        """Create an AuthConfig view for a story/runtime override."""
+        return replace(
+            self,
+            mode=runtime.auth_mode,
+            bootstrap=runtime.bootstrap,
+            auth_redirect_check_path=runtime.auth_redirect_check_path,
+        )
+
+
+@dataclass(frozen=True)
+class StoryRuntimeConfig:
+    """Generic shared-runner config resolved from story metadata plus runner defaults."""
+
+    auth_mode: AuthMode
+    bootstrap: str | None = None
+    auth_redirect_check_path: str | None = None
+
+    @property
+    def uses_ui_login(self) -> bool:
+        return self.auth_mode == "ui_login" or self.bootstrap == UI_LOGIN_BOOTSTRAP
+
+
+def resolve_story_runtime_config(
+    metadata: dict[str, Any] | None,
+    default_auth_config: AuthConfig,
+) -> StoryRuntimeConfig:
+    """Resolve generic auth/bootstrap inputs for one story without product semantics."""
+    metadata = metadata or {}
+
+    auth_mode = metadata.get("auth_mode") or default_auth_config.mode
+    if auth_mode not in {"none", "cookie_bypass", "ui_login", "storage_state"}:
+        raise ValueError(f"Unsupported auth_mode: {auth_mode}")
+
+    bootstrap = metadata.get("bootstrap", default_auth_config.bootstrap)
+
+    # Legacy compatibility: map older story metadata onto the generic bootstrap surface.
+    if metadata.get("requires_real_clerk") and bootstrap is None:
+        logger.warning(
+            "Story metadata 'requires_real_clerk' is deprecated; use bootstrap='ui_login' instead."
+        )
+        bootstrap = UI_LOGIN_BOOTSTRAP
+
+    if auth_mode == "ui_login" and bootstrap is None:
+        bootstrap = UI_LOGIN_BOOTSTRAP
+
+    redirect_check_path = (
+        metadata.get("auth_redirect_check_path") or default_auth_config.auth_redirect_check_path
+    )
+
+    return StoryRuntimeConfig(
+        auth_mode=auth_mode,
+        bootstrap=bootstrap,
+        auth_redirect_check_path=redirect_check_path,
+    )
 
 
 class AuthManager:

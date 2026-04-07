@@ -246,6 +246,37 @@ async def test_deterministic_run_writes_lane_metadata_without_provider(tmp_path)
     assert data["metadata"]["provider"] == "none"
 
 
+def test_resolve_story_runtime_config_prefers_generic_bootstrap():
+    from llm_common.agents.auth import AuthConfig, resolve_story_runtime_config
+
+    runtime = resolve_story_runtime_config(
+        {
+            "auth_mode": "none",
+            "bootstrap": "ui_login",
+            "auth_redirect_check_path": "/v2",
+        },
+        AuthConfig(mode="cookie_bypass"),
+    )
+
+    assert runtime.auth_mode == "none"
+    assert runtime.bootstrap == "ui_login"
+    assert runtime.auth_redirect_check_path == "/v2"
+    assert runtime.uses_ui_login is True
+
+
+def test_resolve_story_runtime_config_maps_legacy_requires_real_clerk():
+    from llm_common.agents.auth import AuthConfig, resolve_story_runtime_config
+
+    runtime = resolve_story_runtime_config(
+        {"requires_real_clerk": True},
+        AuthConfig(mode="none"),
+    )
+
+    assert runtime.auth_mode == "none"
+    assert runtime.bootstrap == "ui_login"
+    assert runtime.uses_ui_login is True
+
+
 @pytest.mark.asyncio
 async def test_deterministic_wait_and_text(mock_browser, mock_llm):
     agent = UISmokeAgent(mock_llm, mock_browser, "http://localhost:3000")
