@@ -15,6 +15,7 @@ def test_cli_exit_qa_mode_with_failures():
             base_url="http://localhost",
             output="out",
             mode="qa",
+            execution_mode=None,
             auth_mode="none",
             bootstrap=None,
             auth_redirect_check_path=None,
@@ -24,11 +25,13 @@ def test_cli_exit_qa_mode_with_failures():
             max_tool_iterations=12, nav_timeout_ms=30000,
             action_timeout_ms=30000, block_domains=None,
             no_default_blocklist=False, only_stories=None,
+            exclude_stories=None, deterministic_only=False,
             cookie_name=None, cookie_value=None,
             cookie_domain=None, cookie_signed=False,
             cookie_secret_env=None, email=None,
             password=None, email_env=None,
-            password_env=None, storage_state=None
+            password_env=None, storage_state=None,
+            fail_on_classifications=None,
         )
         
         runner_instance = MockRunner.return_value
@@ -56,6 +59,7 @@ def test_cli_exit_gate_mode_with_failures():
             base_url="http://localhost",
             output="out",
             mode="gate",
+            execution_mode=None,
             auth_mode="none",
             bootstrap=None,
             auth_redirect_check_path=None,
@@ -65,11 +69,13 @@ def test_cli_exit_gate_mode_with_failures():
             max_tool_iterations=12, nav_timeout_ms=30000,
             action_timeout_ms=30000, block_domains=None,
             no_default_blocklist=False, only_stories=None,
+            exclude_stories=None, deterministic_only=False,
             cookie_name=None, cookie_value=None,
             cookie_domain=None, cookie_signed=False,
             cookie_secret_env=None, email=None,
             password=None, email_env=None,
-            password_env=None, storage_state=None
+            password_env=None, storage_state=None,
+            fail_on_classifications=None,
         )
         
         runner_instance = MockRunner.return_value
@@ -96,6 +102,7 @@ def test_cli_exit_harness_crash():
             base_url="http://localhost",
             output="out",
             mode="qa",
+            execution_mode=None,
             auth_mode="none",
             bootstrap=None,
             auth_redirect_check_path=None,
@@ -105,11 +112,13 @@ def test_cli_exit_harness_crash():
             max_tool_iterations=12, nav_timeout_ms=30000,
             action_timeout_ms=30000, block_domains=None,
             no_default_blocklist=False, only_stories=None,
+            exclude_stories=None, deterministic_only=False,
             cookie_name=None, cookie_value=None,
             cookie_domain=None, cookie_signed=False,
             cookie_secret_env=None, email=None,
             password=None, email_env=None,
-            password_env=None, storage_state=None
+            password_env=None, storage_state=None,
+            fail_on_classifications=None,
         )
         
         runner_instance = MockRunner.return_value
@@ -137,6 +146,7 @@ def test_cli_passes_generic_bootstrap_config_to_runner():
             base_url="http://localhost",
             output="out",
             mode="qa",
+            execution_mode="deterministic",
             auth_mode="none",
             bootstrap="ui_login",
             auth_redirect_check_path="/v2",
@@ -171,3 +181,47 @@ def test_cli_passes_generic_bootstrap_config_to_runner():
         assert auth_config.mode == "none"
         assert auth_config.bootstrap == "ui_login"
         assert auth_config.auth_redirect_check_path == "/v2"
+        assert MockRunner.call_args.kwargs["execution_mode"] == "deterministic"
+
+
+def test_cli_rejects_conflicting_execution_flags():
+    with patch("argparse.ArgumentParser.parse_args") as mock_args:
+        mock_args.return_value = MagicMock(
+            command="run",
+            stories="stories",
+            base_url="http://localhost",
+            output="out",
+            mode="qa",
+            execution_mode="exploratory",
+            auth_mode="none",
+            bootstrap=None,
+            auth_redirect_check_path=None,
+            repro=1,
+            headless=True,
+            tracing=False,
+            suite_timeout=5400,
+            story_timeout=900,
+            max_tool_iterations=12,
+            nav_timeout_ms=30000,
+            action_timeout_ms=30000,
+            block_domains=None,
+            no_default_blocklist=False,
+            only_stories=None,
+            exclude_stories=None,
+            deterministic_only=True,
+            cookie_name=None,
+            cookie_value=None,
+            cookie_domain=None,
+            cookie_signed=False,
+            cookie_secret_env=None,
+            email=None,
+            password=None,
+            email_env=None,
+            password_env=None,
+            storage_state=None,
+            fail_on_classifications=None,
+        )
+
+        with pytest.raises(SystemExit) as cm:
+            main()
+        assert cm.value.code == 2

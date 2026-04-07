@@ -11,7 +11,15 @@ from typing import Any, List, Optional
 
 from llm_common.agents.auth import AuthConfig, AuthManager, resolve_story_runtime_config
 from llm_common.agents.runtime.playwright_adapter import create_playwright_context
-from llm_common.agents.schemas import AgentError, SmokeRunReport, StoryResult, AgentStory
+from llm_common.agents.schemas import (
+    AgentError,
+    AgentStory,
+    SmokeRunReport,
+    StoryResult,
+    UISmokeExecutionMetadata,
+    UISmokeRunMetadata,
+    UISmokeStorySummary,
+)
 from llm_common.agents.ui_smoke_agent import UISmokeAgent
 from llm_common.agents.utils import load_stories_from_directory
 from llm_common.providers.zai_client import GLMConfig, GLMVisionClient
@@ -42,6 +50,7 @@ class UISmokeRunner:
         only_stories: list[str] | None = None,
         exclude_stories: list[str] | None = None,
         deterministic_only: bool = False,
+        execution_mode: str | None = None,
         fail_on_classifications: list[str] | None = None,
     ):
         self.base_url = base_url
@@ -61,7 +70,14 @@ class UISmokeRunner:
         self.no_default_blocklist = no_default_blocklist
         self.only_stories = only_stories
         self.exclude_stories = exclude_stories
-        self.deterministic_only = deterministic_only
+        if execution_mode is None:
+            execution_mode = "deterministic" if deterministic_only else "exploratory"
+        if execution_mode not in {"deterministic", "exploratory"}:
+            raise ValueError(
+                f"Invalid execution_mode '{execution_mode}'. Expected deterministic or exploratory."
+            )
+        self.execution_mode = execution_mode
+        self.deterministic_only = execution_mode == "deterministic"
         self.fail_on_classifications = fail_on_classifications
         self.completed_ok = False
         self.banned_classification_hit = False
@@ -112,7 +128,7 @@ class UISmokeRunner:
         story_results: list[StoryResult] = []
         suite_start_time = time.monotonic()
 
-        lane = "deterministic" if self.deterministic_only else "exploratory"
+        lane = self.execution_mode
         backend = "playwright"
         provider = "none"
 
@@ -194,6 +210,30 @@ class UISmokeRunner:
 
         # Generate Reports
         completed_at = datetime.now(UTC).isoformat()
+        run_metadata = UISmokeRunMetadata(
+            stories_total=len(stories),
+            stories_passed=sum(1 for r in story_results if r.status == "pass"),
+            stories_failed=sum(1 for r in story_results if r.status == "fail"),
+            stories_timed_out=sum(1 for r in story_results if r.status == "timeout"),
+            stories_not_run=sum(1 for r in story_results if r.status == "not_run"),
+            suite_timeout_seconds=self.suite_timeout,
+            story_timeout_seconds=self.story_timeout,
+            auth_mode=self.auth_config.mode,
+            bootstrap=self.auth_config.bootstrap,
+            auth_redirect_check_path=self.auth_config.auth_redirect_check_path,
+            cookie_signed=self.auth_config.cookie_signed,
+            harness_mode=self.mode,
+            execution_mode=self.execution_mode,
+            lane=lane,
+            backend=backend,
+            provider=provider,
+            auth={
+                "auth_mode": self.auth_config.mode,
+                "bootstrap": self.auth_config.bootstrap,
+                "auth_redirect_check_path": self.auth_config.auth_redirect_check_path,
+            },
+        )
+
         report = SmokeRunReport(
             run_id=run_id,
             environment=os.environ.get("ENVIRONMENT", "unknown"),
@@ -206,21 +246,7 @@ class UISmokeRunner:
             },  # Simple tally
             started_at=started_at,
             completed_at=completed_at,
-            metadata={
-                "stories_total": len(stories),
-                "stories_passed": sum(1 for r in story_results if r.status == "pass"),
-                "stories_failed": sum(1 for r in story_results if r.status == "fail"),
-                "stories_timed_out": sum(1 for r in story_results if r.status == "timeout"),
-                "stories_not_run": sum(1 for r in story_results if r.status == "not_run"),
-                "suite_timeout_seconds": self.suite_timeout,
-                "story_timeout_seconds": self.story_timeout,
-                "auth_mode": self.auth_config.mode,
-                "bootstrap": self.auth_config.bootstrap,
-                "cookie_signed": self.auth_config.cookie_signed,
-                "lane": lane,
-                "backend": backend,
-                "provider": provider,
-            },
+            metadata=run_metadata.model_dump(mode="json"),
         )
 
         self.report = report
@@ -354,18 +380,29 @@ class UISmokeRunner:
 
         # Write story_summary.json
         runtime_config = resolve_story_runtime_config(story.metadata, self.auth_config)
-        summary = {
-            "story_id": story.id,
-            "status": final_result.status,
-            "classification": final_result.classification,
-            "attempts_count": len(results),
-            "auth_mode": runtime_config.auth_mode,
-            "bootstrap": runtime_config.bootstrap,
-            "lane": "deterministic" if deterministic_only else "exploratory",
-            "backend": "playwright",
-            "provider": "none" if deterministic_only else "zai_glm_vision",
-            "final_attempt": final_result.model_dump(mode="json"),
-        }
+        story_execution = UISmokeExecutionMetadata(
+            harness_mode=self.mode,
+            execution_mode="deterministic" if deterministic_only else "exploratory",
+            auth_mode=runtime_config.auth_mode,
+            bootstrap=runtime_config.bootstrap,
+            auth_redirect_check_path=runtime_config.auth_redirect_check_path,
+            backend="playwright",
+            provider="none" if deterministic_only else "zai_glm_vision",
+        )
+        summary = UISmokeStorySummary(
+            story_id=story.id,
+            status=final_result.status,
+            classification=final_result.classification,
+            attempts_count=len(results),
+            auth_mode=runtime_config.auth_mode,
+            bootstrap=runtime_config.bootstrap,
+            auth_redirect_check_path=runtime_config.auth_redirect_check_path,
+            lane="deterministic" if deterministic_only else "exploratory",
+            backend="playwright",
+            provider="none" if deterministic_only else "zai_glm_vision",
+            execution=story_execution,
+            final_attempt=final_result.model_dump(mode="json"),
+        ).model_dump(mode="json")
         with open(story_ev_dir / "story_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
 
@@ -784,6 +821,11 @@ def main():
         "--mode", choices=["qa", "gate"], default="qa", help="Harness mode: qa or gate"
     )
     run_parser.add_argument(
+        "--execution-mode",
+        choices=["deterministic", "exploratory"],
+        help="Execution lane for shared runner behavior",
+    )
+    run_parser.add_argument(
         "--repro", type=int, default=1, help="Reruns for failing stories (e.g. 3 for nightly)"
     )
     run_parser.add_argument("--tracing", action="store_true", help="Enable Playwright tracing")
@@ -840,6 +882,18 @@ def main():
     )
 
     if args.command == "run":
+        if args.execution_mode == "exploratory" and args.deterministic_only:
+            logger.error(
+                "Invalid flags: --deterministic-only conflicts with --execution-mode exploratory"
+            )
+            sys.exit(2)
+
+        resolved_execution_mode = (
+            "deterministic"
+            if args.deterministic_only
+            else (args.execution_mode or "exploratory")
+        )
+
         auth_config = AuthConfig(
             mode=args.auth_mode,
             bootstrap=args.bootstrap,
@@ -867,7 +921,8 @@ def main():
             tracing=args.tracing,
             only_stories=args.only_stories,
             exclude_stories=args.exclude_stories,
-            deterministic_only=args.deterministic_only,
+            deterministic_only=(resolved_execution_mode == "deterministic"),
+            execution_mode=resolved_execution_mode,
             suite_timeout=args.suite_timeout,
             story_timeout=args.story_timeout,
             max_tool_iterations=args.max_tool_iterations,

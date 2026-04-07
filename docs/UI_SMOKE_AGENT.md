@@ -21,12 +21,18 @@ This is designed for **milestone-triggered smoke tests**, not per-PR testing. Us
 ## Generic Auth / Bootstrap Contract
 
 - Shared `uismoke` config should use generic runner inputs such as `auth_mode`, `bootstrap`, and `auth_redirect_check_path`.
+- Shared runner lane selection should use `execution_mode` (`deterministic` or `exploratory`) at the CLI/API surface.
 - Product repos may map local lane labels onto those inputs, but shared code should not adopt product-specific labels such as `founder_real_auth`.
 - Current shared bootstrap/auth examples:
   - `auth_mode: none`
   - `auth_mode: cookie_bypass`
   - `auth_mode: ui_login`
   - `bootstrap: ui_login`
+
+### Machine-Readable Result Contract
+
+- `run.json` metadata includes `result_schema_version` (`uismoke.v1`) and stable generic execution fields (`harness_mode`, `execution_mode`, `auth`, `backend`, `provider`).
+- `story_summary.json` includes `result_schema_version` plus an `execution` object with the same generic execution contract.
 
 ## Architecture
 
