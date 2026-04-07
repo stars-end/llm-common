@@ -11,6 +11,8 @@ def test_prime_radiant_founder_story_contract():
 
     assert story["id"] == "story-prime-radiant-founder-path"
     assert story["metadata"]["auth_mode"] == "none"
+    assert "requires_real_clerk" not in story["metadata"]
+    assert "founder_real_auth" not in story["metadata"]
 
     step_ids = [step["id"] for step in story["steps"]]
     assert "step-6-wait-plaid-iframe" in step_ids

@@ -18,6 +18,16 @@ This is designed for **milestone-triggered smoke tests**, not per-PR testing. Us
 - **Exploratory lane** (default): enables GLM vision/tool-calling and requires `ZAI_API_KEY`.
 - **Execution backend**: Playwright remains the in-core browser backend for both lanes.
 
+## Generic Auth / Bootstrap Contract
+
+- Shared `uismoke` config should use generic runner inputs such as `auth_mode`, `bootstrap`, and `auth_redirect_check_path`.
+- Product repos may map local lane labels onto those inputs, but shared code should not adopt product-specific labels such as `founder_real_auth`.
+- Current shared bootstrap/auth examples:
+  - `auth_mode: none`
+  - `auth_mode: cookie_bypass`
+  - `auth_mode: ui_login`
+  - `bootstrap: ui_login`
+
 ## Architecture
 
 ```
