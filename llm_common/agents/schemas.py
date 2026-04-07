@@ -142,6 +142,59 @@ class StoryResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class UISmokeExecutionMetadata(BaseModel):
+    """Stable generic execution contract for machine-readable outputs."""
+
+    harness_mode: str
+    execution_mode: str
+    auth_mode: str
+    bootstrap: str | None = None
+    auth_redirect_check_path: str | None = None
+    backend: str
+    provider: str
+
+
+class UISmokeRunMetadata(BaseModel):
+    """Stable run-level metadata contract."""
+
+    result_schema_version: str = "uismoke.v1"
+    stories_total: int
+    stories_passed: int
+    stories_failed: int
+    stories_timed_out: int
+    stories_not_run: int
+    suite_timeout_seconds: int
+    story_timeout_seconds: int
+    auth_mode: str
+    bootstrap: str | None = None
+    auth_redirect_check_path: str | None = None
+    cookie_signed: bool
+    harness_mode: str
+    execution_mode: str
+    lane: str
+    backend: str
+    provider: str
+    auth: dict[str, Any] = Field(default_factory=dict)
+
+
+class UISmokeStorySummary(BaseModel):
+    """Stable story summary artifact contract."""
+
+    result_schema_version: str = "uismoke.v1"
+    story_id: str
+    status: str
+    classification: str
+    attempts_count: int
+    auth_mode: str
+    bootstrap: str | None = None
+    auth_redirect_check_path: str | None = None
+    lane: str
+    backend: str
+    provider: str
+    execution: UISmokeExecutionMetadata
+    final_attempt: dict[str, Any]
+
+
 class RelevantTurns(BaseModel):
     """A list of relevant conversation turns."""
 

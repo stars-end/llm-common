@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from llm_common.agents.schemas import StoryResult
+from llm_common.agents.schemas import AgentStory
 from llm_common.agents.ui_smoke_agent import UISmokeAgent
 from llm_common.agents.uismoke_triage import UISmokeTriage
 
@@ -241,9 +242,68 @@ async def test_deterministic_run_writes_lane_metadata_without_provider(tmp_path)
 
     run_json = runner.run_output_dir / "run.json"
     data = json.loads(run_json.read_text())
+    assert data["metadata"]["result_schema_version"] == "uismoke.v1"
+    assert data["metadata"]["harness_mode"] == "qa"
+    assert data["metadata"]["execution_mode"] == "deterministic"
     assert data["metadata"]["lane"] == "deterministic"
     assert data["metadata"]["backend"] == "playwright"
     assert data["metadata"]["provider"] == "none"
+    assert data["metadata"]["auth"]["auth_mode"] == "none"
+    assert data["metadata"]["auth"]["bootstrap"] is None
+
+
+@pytest.mark.asyncio
+async def test_story_summary_includes_stable_execution_contract(tmp_path):
+    from llm_common.agents.auth import AuthConfig
+    from llm_common.agents.uismoke_runner import UISmokeRunner
+
+    stories_dir = tmp_path / "stories"
+    stories_dir.mkdir()
+
+    runner = UISmokeRunner(
+        base_url="http://test",
+        stories_dir=stories_dir,
+        output_dir=tmp_path / "out",
+        auth_config=AuthConfig(mode="none", bootstrap="ui_login"),
+        mode="gate",
+        deterministic_only=True,
+    )
+
+    story = AgentStory(
+        id="story-1",
+        persona="admin",
+        steps=[{"id": "s1", "deterministic": True, "navigate": "/home"}],
+        metadata={"auth_mode": "none", "bootstrap": "ui_login"},
+    )
+
+    runner._run_attempt = AsyncMock(
+        return_value={
+            "result": StoryResult(story_id="story-1", status="pass"),
+            "authed_shared": None,
+            "guest_shared": None,
+            "auth_verified": True,
+            "auth_failed_reason": None,
+        }
+    )
+
+    await runner._run_story_with_repro(
+        story=story,
+        glm_client=None,
+        suite_start_time=0.0,
+        authed_shared=(None, None, None),
+        guest_shared=(None, None, None),
+        auth_manager=MagicMock(),
+        deterministic_only=True,
+    )
+
+    summary_path = runner.stories_output_dir / "story-1" / "story_summary.json"
+    data = json.loads(summary_path.read_text())
+    assert data["result_schema_version"] == "uismoke.v1"
+    assert data["execution"]["harness_mode"] == "gate"
+    assert data["execution"]["execution_mode"] == "deterministic"
+    assert data["execution"]["auth_mode"] == "none"
+    assert data["execution"]["bootstrap"] == "ui_login"
+    assert data["execution"]["backend"] == "playwright"
 
 
 def test_resolve_story_runtime_config_prefers_generic_bootstrap():
