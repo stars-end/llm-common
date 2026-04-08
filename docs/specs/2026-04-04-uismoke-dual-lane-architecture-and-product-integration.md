@@ -16,11 +16,12 @@ Cross-repo coordination input:
 1. deterministic lane
 2. exploratory lane
 
-The deterministic lane is the primary gating lane. It stays Playwright-backed, provider-free, and suitable for repo-local Make targets used in CI and pre-merge checks.
+The deterministic lane is the shared deterministic execution lane. It stays Playwright-backed and provider-free, and is suitable for repo-local wrappers that need reproducible checks.
 
-The exploratory lane stays inside the shared `uismoke` engine, but it becomes explicitly advisory by default. It uses the same Playwright session model plus an exploratory planner/LLM interface for non-deterministic steps, richer forensics, and nightly or operator-invoked runs.
+The exploratory lane stays inside the shared `uismoke` engine and is explicitly advisory by default. It uses the same Playwright session model plus an exploratory planner/LLM interface for non-deterministic steps, richer forensics, and nightly or operator-invoked runs.
 
 Stories remain repo-local. Product repos own story packs, Make targets, validation scripts, drift guards, and release semantics. `llm-common` owns the engine, lane orchestration, Playwright runtime, artifact schema, and generic triage primitives.
+`llm-common` does not own founder or merge-gate authority; callers decide whether results are blocking.
 
 `agent-browser` should not become the first in-core `uismoke` backend. It should remain a manual or dogfood sidecar for founder UX review, exploratory QA, screenshots, and human-in-the-loop inspection.
 
@@ -77,9 +78,9 @@ Only the first two are part of the shared engine. The third is intentionally out
 
 | Surface | Purpose | Backend | Failure Semantics | Default Use |
 |---|---|---|---|---|
-| Deterministic lane | Stable executable story enforcement | Playwright only | Blocking when configured gate stories fail | CI, pre-merge, fast repro |
+| Deterministic lane | Stable executable story verification | Playwright only | Deterministic pass/fail output; wrappers may treat as blocking | fast repro, CI wrappers, deterministic evidence |
 | Exploratory lane | Ambiguous-step completion, richer nightly evidence, advisory product surfacing | Playwright + exploratory planner/LLM | Advisory by default; may fail nightly jobs if repo opts in | nightly, debugging, single-story investigation |
-| Manual sidecar | Founder QA, dogfood, screenshots, discovery, bug-hunting | `agent-browser` | Never a shared-engine gate | ad hoc human or agent-driven review |
+| Manual sidecar | Operator QA, dogfood, screenshots, discovery, bug-hunting | `agent-browser` | Never a shared-engine authority surface | ad hoc human or agent-driven review |
 
 ### Required Engine Split
 
@@ -130,13 +131,13 @@ Rules:
 - Runs only deterministic steps.
 - Requires no LLM API key.
 - May run with `--max-tool-iterations 1` or no exploratory loop at all.
-- Produces artifacts that are safe to treat as gating evidence.
+- Produces deterministic artifacts suitable for evidence and repo-local policy evaluation.
 - Fails fast on harness, auth, navigation, selector, and deterministic assertion failures.
 
 Expected product-level usage:
 
-- affordabot substrate gate
-- affordabot stable admin gate subset
+- affordabot deterministic substrate verification subset
+- affordabot stable admin deterministic subset
 - prime-radiant-ai contract-adjacent or regression-support deterministic subsets
 
 ### Exploratory Lane
