@@ -356,7 +356,7 @@ async def test_deterministic_wait_and_text(mock_browser, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_ui_login_uses_form_scoped_submit_selectors():
+async def test_ui_login_combined_page_submits_once_with_exact_continue():
     from llm_common.agents.auth import AuthConfig, AuthManager
 
     page = AsyncMock()
@@ -368,8 +368,11 @@ async def test_ui_login_uses_form_scoped_submit_selectors():
     page.fill = AsyncMock()
     page.click = AsyncMock()
     page.wait_for_url = AsyncMock()
-    page.is_visible = AsyncMock(return_value=True)
-    page.is_enabled = AsyncMock(return_value=True)
+    page.is_visible = AsyncMock(return_value=True)  # password visible
+    page.is_enabled = AsyncMock(return_value=True)  # password enabled
+    continue_button = AsyncMock()
+    continue_button.click = AsyncMock()
+    page.get_by_role = MagicMock(return_value=continue_button)
 
     adapter = MagicMock()
     adapter.page = page
@@ -387,18 +390,16 @@ async def test_ui_login_uses_form_scoped_submit_selectors():
     assert success is True
     fill_targets = [call.args[0] for call in page.fill.call_args_list]
     assert fill_targets == [
-        "form:has(input[name='identifier']):has(input[name='password']) input[name='identifier']",
-        "form:has(input[name='identifier']):has(input[name='password']) input[name='password']",
+        "input[name='identifier']",
+        "input[name='password']",
     ]
-    click_targets = [call.args[0] for call in page.click.call_args_list]
-    assert "button:has-text('Continue')" not in click_targets
-    assert click_targets == [
-        "form:has(input[name='identifier']):has(input[name='password']) button[type='submit']"
-    ]
+    continue_button.click.assert_awaited_once_with(timeout=5000)
+    page.get_by_role.assert_called_with("button", name="Continue", exact=True)
+    page.click.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_ui_login_falls_back_to_stepwise_when_combined_form_not_ready():
+async def test_ui_login_falls_back_to_stepwise_when_password_not_fillable():
     from llm_common.agents.auth import AuthConfig, AuthManager
 
     page = AsyncMock()
@@ -410,12 +411,11 @@ async def test_ui_login_falls_back_to_stepwise_when_combined_form_not_ready():
     page.fill = AsyncMock()
     page.click = AsyncMock()
     page.wait_for_url = AsyncMock()
-
-    async def is_visible_side_effect(selector: str):
-        return selector != "form:has(input[name='identifier']):has(input[name='password']) input[name='password']"
-
-    page.is_visible = AsyncMock(side_effect=is_visible_side_effect)
+    page.is_visible = AsyncMock(return_value=False)  # password not visible yet
     page.is_enabled = AsyncMock(return_value=True)
+    continue_button = AsyncMock()
+    continue_button.click = AsyncMock()
+    page.get_by_role = MagicMock(return_value=continue_button)
 
     adapter = MagicMock()
     adapter.page = page
@@ -431,34 +431,38 @@ async def test_ui_login_falls_back_to_stepwise_when_combined_form_not_ready():
     success = await manager.apply_auth(adapter)
 
     assert success is True
-    click_targets = [call.args[0] for call in page.click.call_args_list]
-    assert click_targets == [
-        "form:has(input[name='identifier']) button[type='submit']",
-        "form:has(input[name='password']) button[type='submit']",
+    fill_targets = [call.args[0] for call in page.fill.call_args_list]
+    assert fill_targets == [
+        "input[name='identifier']",
+        "input[name='password']",
     ]
+    assert continue_button.click.await_count == 2
 
 
 @pytest.mark.asyncio
-async def test_clerk_submit_falls_back_to_form_scoped_continue():
+async def test_clerk_continue_falls_back_to_exact_text_selectors():
     from llm_common.agents.auth import AuthConfig, AuthManager
 
     page = AsyncMock()
     attempted: list[str] = []
+    continue_button = AsyncMock()
+    continue_button.click = AsyncMock(side_effect=RuntimeError("role locator unavailable"))
+    page.get_by_role = MagicMock(return_value=continue_button)
 
     async def click_side_effect(selector: str, timeout: int = 5000):
         attempted.append(selector)
-        if selector.endswith("button[type='submit']"):
+        if selector == 'button:text-is("Continue")':
             raise RuntimeError("submit button missing")
         return None
 
     page.click = AsyncMock(side_effect=click_side_effect)
     manager = AuthManager(AuthConfig())
 
-    await manager._click_clerk_form_submit(page, "password")
+    await manager._click_clerk_continue(page)
 
     assert attempted == [
-        "form:has(input[name='password']) button[type='submit']",
-        "form:has(input[name='password']) button:has-text('Continue')",
+        'button:text-is("Continue")',
+        '[role="button"]:text-is("Continue")',
     ]
 
 

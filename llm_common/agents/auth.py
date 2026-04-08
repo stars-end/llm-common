@@ -100,14 +100,17 @@ class AuthManager:
     def __init__(self, config: AuthConfig):
         self.config = config
 
-    async def _click_clerk_form_submit(
-        self, page: Any, field_name: str, form_selector: str | None = None
-    ) -> None:
-        """Submit the Clerk step tied to a specific field without hitting social CTAs."""
-        base_selector = form_selector or f"form:has(input[name='{field_name}'])"
+    async def _click_clerk_continue(self, page: Any) -> None:
+        """Click Clerk's primary Continue CTA without matching social providers."""
+        try:
+            await page.get_by_role("button", name="Continue", exact=True).click(timeout=5000)
+            return
+        except Exception:
+            pass
+
         selectors = [
-            f"{base_selector} button[type='submit']",
-            f"{base_selector} button:has-text('Continue')",
+            'button:text-is("Continue")',
+            '[role="button"]:text-is("Continue")',
         ]
         for selector in selectors:
             try:
@@ -115,24 +118,13 @@ class AuthManager:
                 return
             except Exception:
                 continue
-        raise RuntimeError(
-            f"Unable to find Clerk submit button for field '{field_name}' using form-scoped selectors"
-        )
+        raise RuntimeError("Unable to find exact Clerk Continue button")
 
-    async def _has_combined_identifier_password_form(self, page: Any) -> bool:
-        """Return True when Clerk presents one enabled form containing both credentials."""
-        combined_form = "form:has(input[name='identifier']):has(input[name='password'])"
-        identifier_selector = f"{combined_form} input[name='identifier']"
-        password_selector = f"{combined_form} input[name='password']"
+    async def _is_password_fillable(self, page: Any) -> bool:
+        """Return True when password input is currently visible and enabled."""
+        password_selector = "input[name='password']"
         try:
-            return all(
-                [
-                    await page.is_visible(identifier_selector),
-                    await page.is_enabled(identifier_selector),
-                    await page.is_visible(password_selector),
-                    await page.is_enabled(password_selector),
-                ]
-            )
+            return await page.is_visible(password_selector) and await page.is_enabled(password_selector)
         except Exception:
             return False
 
@@ -220,20 +212,14 @@ class AuthManager:
                 if await page.get_by_text("Sign in to continue").is_visible():
                     await page.click("text=Sign in to continue")
 
-                if await self._has_combined_identifier_password_form(page):
-                    combined_form = "form:has(input[name='identifier']):has(input[name='password'])"
-                    await page.fill(f"{combined_form} input[name='identifier']", email)
-                    await page.fill(f"{combined_form} input[name='password']", password)
-                    await self._click_clerk_form_submit(
-                        page,
-                        "password",
-                        form_selector=combined_form,
-                    )
-                else:
-                    await page.fill("input[name='identifier']", email)
-                    await self._click_clerk_form_submit(page, "identifier")
+                await page.fill("input[name='identifier']", email)
+                if await self._is_password_fillable(page):
                     await page.fill("input[name='password']", password)
-                    await self._click_clerk_form_submit(page, "password")
+                    await self._click_clerk_continue(page)
+                else:
+                    await self._click_clerk_continue(page)
+                    await page.fill("input[name='password']", password)
+                    await self._click_clerk_continue(page)
 
                 # Wait for redirect away from sign-in
                 await page.wait_for_url(lambda u: "/sign-in" not in u, timeout=30000)
