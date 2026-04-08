@@ -100,11 +100,14 @@ class AuthManager:
     def __init__(self, config: AuthConfig):
         self.config = config
 
-    async def _click_clerk_form_submit(self, page: Any, field_name: str) -> None:
+    async def _click_clerk_form_submit(
+        self, page: Any, field_name: str, form_selector: str | None = None
+    ) -> None:
         """Submit the Clerk step tied to a specific field without hitting social CTAs."""
+        base_selector = form_selector or f"form:has(input[name='{field_name}'])"
         selectors = [
-            f"form:has(input[name='{field_name}']) button[type='submit']",
-            f"form:has(input[name='{field_name}']) button:has-text('Continue')",
+            f"{base_selector} button[type='submit']",
+            f"{base_selector} button:has-text('Continue')",
         ]
         for selector in selectors:
             try:
@@ -115,6 +118,23 @@ class AuthManager:
         raise RuntimeError(
             f"Unable to find Clerk submit button for field '{field_name}' using form-scoped selectors"
         )
+
+    async def _has_combined_identifier_password_form(self, page: Any) -> bool:
+        """Return True when Clerk presents one enabled form containing both credentials."""
+        combined_form = "form:has(input[name='identifier']):has(input[name='password'])"
+        identifier_selector = f"{combined_form} input[name='identifier']"
+        password_selector = f"{combined_form} input[name='password']"
+        try:
+            return all(
+                [
+                    await page.is_visible(identifier_selector),
+                    await page.is_enabled(identifier_selector),
+                    await page.is_visible(password_selector),
+                    await page.is_enabled(password_selector),
+                ]
+            )
+        except Exception:
+            return False
 
     async def apply_auth(self, adapter: PlaywrightAdapter) -> bool:
         """Apply authentication to a context via the adapter's page."""
@@ -200,10 +220,20 @@ class AuthManager:
                 if await page.get_by_text("Sign in to continue").is_visible():
                     await page.click("text=Sign in to continue")
 
-                await page.fill("input[name='identifier']", email)
-                await self._click_clerk_form_submit(page, "identifier")
-                await page.fill("input[name='password']", password)
-                await self._click_clerk_form_submit(page, "password")
+                if await self._has_combined_identifier_password_form(page):
+                    combined_form = "form:has(input[name='identifier']):has(input[name='password'])"
+                    await page.fill(f"{combined_form} input[name='identifier']", email)
+                    await page.fill(f"{combined_form} input[name='password']", password)
+                    await self._click_clerk_form_submit(
+                        page,
+                        "password",
+                        form_selector=combined_form,
+                    )
+                else:
+                    await page.fill("input[name='identifier']", email)
+                    await self._click_clerk_form_submit(page, "identifier")
+                    await page.fill("input[name='password']", password)
+                    await self._click_clerk_form_submit(page, "password")
 
                 # Wait for redirect away from sign-in
                 await page.wait_for_url(lambda u: "/sign-in" not in u, timeout=30000)
