@@ -368,8 +368,6 @@ async def test_ui_login_combined_page_submits_once_with_exact_continue():
     page.fill = AsyncMock()
     page.click = AsyncMock()
     page.wait_for_url = AsyncMock()
-    page.is_visible = AsyncMock(return_value=True)  # password visible
-    page.is_enabled = AsyncMock(return_value=True)  # password enabled
     continue_button = AsyncMock()
     continue_button.click = AsyncMock()
     page.get_by_role = MagicMock(return_value=continue_button)
@@ -399,7 +397,7 @@ async def test_ui_login_combined_page_submits_once_with_exact_continue():
 
 
 @pytest.mark.asyncio
-async def test_ui_login_falls_back_to_stepwise_when_password_not_fillable():
+async def test_ui_login_falls_back_to_stepwise_when_direct_password_fill_not_ready():
     from llm_common.agents.auth import AuthConfig, AuthManager
 
     page = AsyncMock()
@@ -408,11 +406,19 @@ async def test_ui_login_falls_back_to_stepwise_when_password_not_fillable():
     sign_in_cta = AsyncMock()
     sign_in_cta.is_visible = AsyncMock(return_value=False)
     page.get_by_text = MagicMock(return_value=sign_in_cta)
-    page.fill = AsyncMock()
+    password_selector = "input[name='password']"
+    password_attempts = {"count": 0}
+
+    async def fill_side_effect(selector: str, value: str):
+        if selector == password_selector:
+            password_attempts["count"] += 1
+            if password_attempts["count"] == 1:
+                raise RuntimeError("Element is not visible")
+        return None
+
+    page.fill = AsyncMock(side_effect=fill_side_effect)
     page.click = AsyncMock()
     page.wait_for_url = AsyncMock()
-    page.is_visible = AsyncMock(return_value=False)  # password not visible yet
-    page.is_enabled = AsyncMock(return_value=True)
     continue_button = AsyncMock()
     continue_button.click = AsyncMock()
     page.get_by_role = MagicMock(return_value=continue_button)
@@ -435,8 +441,43 @@ async def test_ui_login_falls_back_to_stepwise_when_password_not_fillable():
     assert fill_targets == [
         "input[name='identifier']",
         "input[name='password']",
+        "input[name='password']",
     ]
     assert continue_button.click.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_ui_login_does_not_fallback_on_unrelated_password_fill_error():
+    from llm_common.agents.auth import AuthConfig, AuthManager
+
+    page = AsyncMock()
+    page.url = "http://localhost/sign-in"
+    page.content = AsyncMock(return_value="Sign in")
+    sign_in_cta = AsyncMock()
+    sign_in_cta.is_visible = AsyncMock(return_value=False)
+    page.get_by_text = MagicMock(return_value=sign_in_cta)
+    page.fill = AsyncMock(side_effect=[None, RuntimeError("Unexpected backend failure")])
+    page.click = AsyncMock()
+    page.wait_for_url = AsyncMock()
+    continue_button = AsyncMock()
+    continue_button.click = AsyncMock()
+    page.get_by_role = MagicMock(return_value=continue_button)
+
+    adapter = MagicMock()
+    adapter.page = page
+    adapter.navigate = AsyncMock()
+
+    manager = AuthManager(
+        AuthConfig(
+            mode="ui_login",
+            email="founder@example.com",
+            password="super-secret",
+        )
+    )
+    success = await manager.apply_auth(adapter)
+
+    assert success is False
+    continue_button.click.assert_not_awaited()
 
 
 @pytest.mark.asyncio
