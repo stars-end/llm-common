@@ -355,6 +355,64 @@ async def test_deterministic_wait_and_text(mock_browser, mock_llm):
     mock_browser.get_text.assert_called_with("h1")
 
 
+@pytest.mark.asyncio
+async def test_ui_login_uses_form_scoped_submit_selectors():
+    from llm_common.agents.auth import AuthConfig, AuthManager
+
+    page = AsyncMock()
+    page.url = "http://localhost/sign-in"
+    page.content = AsyncMock(return_value="Sign in")
+    sign_in_cta = AsyncMock()
+    sign_in_cta.is_visible = AsyncMock(return_value=False)
+    page.get_by_text = MagicMock(return_value=sign_in_cta)
+    page.fill = AsyncMock()
+    page.click = AsyncMock()
+    page.wait_for_url = AsyncMock()
+
+    adapter = MagicMock()
+    adapter.page = page
+    adapter.navigate = AsyncMock()
+
+    manager = AuthManager(
+        AuthConfig(
+            mode="ui_login",
+            email="founder@example.com",
+            password="super-secret",
+        )
+    )
+    success = await manager.apply_auth(adapter)
+
+    assert success is True
+    click_targets = [call.args[0] for call in page.click.call_args_list]
+    assert "button:has-text('Continue')" not in click_targets
+    assert "form:has(input[name='identifier']) button[type='submit']" in click_targets
+    assert "form:has(input[name='password']) button[type='submit']" in click_targets
+
+
+@pytest.mark.asyncio
+async def test_clerk_submit_falls_back_to_form_scoped_continue():
+    from llm_common.agents.auth import AuthConfig, AuthManager
+
+    page = AsyncMock()
+    attempted: list[str] = []
+
+    async def click_side_effect(selector: str, timeout: int = 5000):
+        attempted.append(selector)
+        if selector.endswith("button[type='submit']"):
+            raise RuntimeError("submit button missing")
+        return None
+
+    page.click = AsyncMock(side_effect=click_side_effect)
+    manager = AuthManager(AuthConfig())
+
+    await manager._click_clerk_form_submit(page, "password")
+
+    assert attempted == [
+        "form:has(input[name='password']) button[type='submit']",
+        "form:has(input[name='password']) button:has-text('Continue')",
+    ]
+
+
 def test_hardened_triage_logic(tmp_path):
     run_dir = tmp_path / "run_tri"
     run_dir.mkdir()

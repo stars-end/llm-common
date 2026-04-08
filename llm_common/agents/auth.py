@@ -100,6 +100,22 @@ class AuthManager:
     def __init__(self, config: AuthConfig):
         self.config = config
 
+    async def _click_clerk_form_submit(self, page: Any, field_name: str) -> None:
+        """Submit the Clerk step tied to a specific field without hitting social CTAs."""
+        selectors = [
+            f"form:has(input[name='{field_name}']) button[type='submit']",
+            f"form:has(input[name='{field_name}']) button:has-text('Continue')",
+        ]
+        for selector in selectors:
+            try:
+                await page.click(selector, timeout=5000)
+                return
+            except Exception:
+                continue
+        raise RuntimeError(
+            f"Unable to find Clerk submit button for field '{field_name}' using form-scoped selectors"
+        )
+
     async def apply_auth(self, adapter: PlaywrightAdapter) -> bool:
         """Apply authentication to a context via the adapter's page."""
         if self.config.mode == "none":
@@ -185,9 +201,9 @@ class AuthManager:
                     await page.click("text=Sign in to continue")
 
                 await page.fill("input[name='identifier']", email)
-                await page.click("button:has-text('Continue')")
+                await self._click_clerk_form_submit(page, "identifier")
                 await page.fill("input[name='password']", password)
-                await page.click("button:has-text('Continue')")
+                await self._click_clerk_form_submit(page, "password")
 
                 # Wait for redirect away from sign-in
                 await page.wait_for_url(lambda u: "/sign-in" not in u, timeout=30000)
