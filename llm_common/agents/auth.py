@@ -215,10 +215,6 @@ class AuthManager:
                     logger.info("Already logged in (UI detection)")
                     return True
 
-                # Try common Clerk pattern
-                if await page.get_by_text("Sign in to continue").is_visible():
-                    await page.click("text=Sign in to continue")
-
                 await page.fill("input[name='identifier']", email)
                 try:
                     await page.fill("input[name='password']", password)
