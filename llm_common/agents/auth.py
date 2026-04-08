@@ -120,13 +120,20 @@ class AuthManager:
                 continue
         raise RuntimeError("Unable to find exact Clerk Continue button")
 
-    async def _is_password_fillable(self, page: Any) -> bool:
-        """Return True when password input is currently visible and enabled."""
-        password_selector = "input[name='password']"
-        try:
-            return await page.is_visible(password_selector) and await page.is_enabled(password_selector)
-        except Exception:
-            return False
+    def _is_not_fillable_password_error(self, error: Exception) -> bool:
+        """Best-effort classification for password field not-ready errors."""
+        message = str(error).lower()
+        not_fillable_markers = (
+            "not visible",
+            "not enabled",
+            "not editable",
+            "no node found",
+            "strict mode violation",
+            "element is not attached",
+            "element is detached",
+            "timeout",
+        )
+        return any(marker in message for marker in not_fillable_markers)
 
     async def apply_auth(self, adapter: PlaywrightAdapter) -> bool:
         """Apply authentication to a context via the adapter's page."""
@@ -213,10 +220,12 @@ class AuthManager:
                     await page.click("text=Sign in to continue")
 
                 await page.fill("input[name='identifier']", email)
-                if await self._is_password_fillable(page):
+                try:
                     await page.fill("input[name='password']", password)
                     await self._click_clerk_continue(page)
-                else:
+                except Exception as password_fill_error:
+                    if not self._is_not_fillable_password_error(password_fill_error):
+                        raise
                     await self._click_clerk_continue(page)
                     await page.fill("input[name='password']", password)
                     await self._click_clerk_continue(page)
