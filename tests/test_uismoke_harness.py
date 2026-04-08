@@ -368,6 +368,54 @@ async def test_ui_login_uses_form_scoped_submit_selectors():
     page.fill = AsyncMock()
     page.click = AsyncMock()
     page.wait_for_url = AsyncMock()
+    page.is_visible = AsyncMock(return_value=True)
+    page.is_enabled = AsyncMock(return_value=True)
+
+    adapter = MagicMock()
+    adapter.page = page
+    adapter.navigate = AsyncMock()
+
+    manager = AuthManager(
+        AuthConfig(
+            mode="ui_login",
+            email="founder@example.com",
+            password="super-secret",
+        )
+    )
+    success = await manager.apply_auth(adapter)
+
+    assert success is True
+    fill_targets = [call.args[0] for call in page.fill.call_args_list]
+    assert fill_targets == [
+        "form:has(input[name='identifier']):has(input[name='password']) input[name='identifier']",
+        "form:has(input[name='identifier']):has(input[name='password']) input[name='password']",
+    ]
+    click_targets = [call.args[0] for call in page.click.call_args_list]
+    assert "button:has-text('Continue')" not in click_targets
+    assert click_targets == [
+        "form:has(input[name='identifier']):has(input[name='password']) button[type='submit']"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ui_login_falls_back_to_stepwise_when_combined_form_not_ready():
+    from llm_common.agents.auth import AuthConfig, AuthManager
+
+    page = AsyncMock()
+    page.url = "http://localhost/sign-in"
+    page.content = AsyncMock(return_value="Sign in")
+    sign_in_cta = AsyncMock()
+    sign_in_cta.is_visible = AsyncMock(return_value=False)
+    page.get_by_text = MagicMock(return_value=sign_in_cta)
+    page.fill = AsyncMock()
+    page.click = AsyncMock()
+    page.wait_for_url = AsyncMock()
+
+    async def is_visible_side_effect(selector: str):
+        return selector != "form:has(input[name='identifier']):has(input[name='password']) input[name='password']"
+
+    page.is_visible = AsyncMock(side_effect=is_visible_side_effect)
+    page.is_enabled = AsyncMock(return_value=True)
 
     adapter = MagicMock()
     adapter.page = page
@@ -384,9 +432,10 @@ async def test_ui_login_uses_form_scoped_submit_selectors():
 
     assert success is True
     click_targets = [call.args[0] for call in page.click.call_args_list]
-    assert "button:has-text('Continue')" not in click_targets
-    assert "form:has(input[name='identifier']) button[type='submit']" in click_targets
-    assert "form:has(input[name='password']) button[type='submit']" in click_targets
+    assert click_targets == [
+        "form:has(input[name='identifier']) button[type='submit']",
+        "form:has(input[name='password']) button[type='submit']",
+    ]
 
 
 @pytest.mark.asyncio
