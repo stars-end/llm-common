@@ -397,6 +397,47 @@ async def test_ui_login_combined_page_submits_once_with_exact_continue():
 
 
 @pytest.mark.asyncio
+async def test_ui_login_skips_sign_in_to_continue_prompt_and_uses_direct_sequence():
+    from llm_common.agents.auth import AuthConfig, AuthManager
+
+    page = AsyncMock()
+    page.url = "http://localhost/sign-in"
+    page.content = AsyncMock(return_value="Sign in")
+    sign_in_cta = AsyncMock()
+    sign_in_cta.is_visible = AsyncMock(return_value=True)
+    page.get_by_text = MagicMock(return_value=sign_in_cta)
+    page.fill = AsyncMock()
+    page.click = AsyncMock(side_effect=AssertionError("unexpected sign-in prompt click"))
+    page.wait_for_url = AsyncMock()
+    continue_button = AsyncMock()
+    continue_button.click = AsyncMock()
+    page.get_by_role = MagicMock(return_value=continue_button)
+
+    adapter = MagicMock()
+    adapter.page = page
+    adapter.navigate = AsyncMock()
+
+    manager = AuthManager(
+        AuthConfig(
+            mode="ui_login",
+            email="founder@example.com",
+            password="super-secret",
+        )
+    )
+    success = await manager.apply_auth(adapter)
+
+    assert success is True
+    fill_targets = [call.args[0] for call in page.fill.call_args_list]
+    assert fill_targets == [
+        "input[name='identifier']",
+        "input[name='password']",
+    ]
+    continue_button.click.assert_awaited_once_with(timeout=5000)
+    page.get_by_text.assert_not_called()
+    page.click.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_ui_login_falls_back_to_stepwise_when_direct_password_fill_not_ready():
     from llm_common.agents.auth import AuthConfig, AuthManager
 
