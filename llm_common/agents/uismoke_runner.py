@@ -772,11 +772,19 @@ class UISmokeRunner:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="UISmoke Universal CLI")
+    parser = argparse.ArgumentParser(
+        description=(
+            "UISmoke shared-runner CLI (exploratory/evidence-oriented by default; "
+            "blocking policy is wrapper-owned)"
+        )
+    )
     subparsers = parser.add_subparsers(dest="command", help="UISmoke commands")
 
     # Command: run
-    run_parser = subparsers.add_parser("run", help="Run UISmoke stories")
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run UISmoke stories and emit lane-aware evidence artifacts",
+    )
     run_parser.add_argument("--stories", required=True, help="Directory containing story YAMLs")
     run_parser.add_argument("--base-url", required=True, help="Target application URL")
     run_parser.add_argument("--output", required=True, help="Directory to write artifacts")
@@ -818,12 +826,15 @@ def main():
     run_parser.add_argument("--headless", action="store_true", default=True, help="Run headless")
     run_parser.add_argument("--no-headless", action="store_false", dest="headless")
     run_parser.add_argument(
-        "--mode", choices=["qa", "gate"], default="qa", help="Harness mode: qa or gate"
+        "--mode",
+        choices=["qa", "gate"],
+        default="qa",
+        help="Exit-policy mode for wrappers: qa (evidence-oriented) or gate (strict)",
     )
     run_parser.add_argument(
         "--execution-mode",
         choices=["deterministic", "exploratory"],
-        help="Execution lane for shared runner behavior",
+        help="Shared-runner lane: deterministic (provider-free) or exploratory (LLM-assisted)",
     )
     run_parser.add_argument(
         "--repro", type=int, default=1, help="Reruns for failing stories (e.g. 3 for nightly)"
@@ -834,7 +845,10 @@ def main():
     run_parser.add_argument(
         "--deterministic-only",
         action="store_true",
-        help="Skip steps that aren't deterministic (useful for harness validation)",
+        help=(
+            "Run deterministic steps only (provider-free). Useful for reproducible "
+            "evidence and harness checks; wrapper decides gate authority."
+        ),
     )
     run_parser.add_argument("--fail-on-classifications", type=str, help="Comma-separated classifications that should cause non-zero exit (e.g. flaky_recovered,timeout)")
 

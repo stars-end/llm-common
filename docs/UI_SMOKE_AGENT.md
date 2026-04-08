@@ -11,12 +11,14 @@ The UI Smoke Agent combines:
 - **Error reporting**: Console, network, UI error detection → Beads issues
 
 This is designed for **milestone-triggered smoke tests**, not per-PR testing. Use it to validate critical user journeys against dev/staging/prod environments.
+By default, shared `uismoke` output is evidence-oriented; merge/release authority stays repo-local.
 
 ## Lane Contract
 
-- **Deterministic lane** (`--deterministic-only`): provider-free path for gating and harness validation. Does not require `ZAI_API_KEY`.
-- **Exploratory lane** (default): enables GLM vision/tool-calling and requires `ZAI_API_KEY`.
+- **Deterministic lane** (`--deterministic-only`): provider-free path for reproducible checks and harness validation. Does not require `ZAI_API_KEY`.
+- **Exploratory lane** (default): enables GLM vision/tool-calling for exploratory/nightly evidence and requires `ZAI_API_KEY`.
 - **Execution backend**: Playwright remains the in-core browser backend for both lanes.
+- **Policy boundary**: shared `llm-common` lanes do not declare founder or merge-gate authority; consuming repos decide blocking policy.
 
 ## Generic Auth / Bootstrap Contract
 

@@ -11,7 +11,7 @@ concepts from Prime into `llm-common`.
 The failure to avoid is now clear:
 
 - the earlier Prime-side QA rationalization was correct to avoid cross-repo work at the time
-- later founder-live verification needed a deterministic browser runner again
+- later product-side verification needed a deterministic browser runner again
 - because `uismoke` role and inputs were not cleanly modeled, Prime ended up with a fuzzy
   boundary between repo-local lane semantics and shared runner mechanics
 
@@ -49,24 +49,24 @@ Today those jobs are not cleanly separated enough. The main shared-code risks ar
 
 - Define generic `uismoke` auth/bootstrap/session inputs.
 - Split deterministic and LLM execution modes explicitly.
-- Make Playwright the authoritative substrate for executable `uismoke` lanes.
+- Make Playwright the default executable substrate for shared `uismoke` lanes.
 - Publish a stable CLI and result schema for repo-local wrappers.
-- Document `agent-browser` as a manual sidecar, not the authoritative gate substrate.
+- Document `agent-browser` as a manual sidecar, not an in-core gate substrate.
 
 ## Non-Goals
 
 - Do not add product-specific lanes such as `founder_real_auth` to shared code.
 - Do not move Prime story ownership into `llm-common`.
-- Do not turn `agent-browser` into the executable gate runner.
-- Do not decide which Prime prompts are gating from inside `llm-common`.
+- Do not turn `agent-browser` into the executable runner backend.
+- Do not decide which repo-local prompts are blocking from inside `llm-common`.
 
 ## Active Contract
 
 `llm-common` will own only generic runner concepts:
 
-- `mode`
+- `execution_mode`
   - `deterministic`
-  - `llm`
+  - `exploratory`
 - `auth_mode`
   - examples: `cookie_bypass`, `real_jwt`, `anon`
 - `bootstrap`
@@ -84,8 +84,8 @@ inputs.
 
 The shared runner should support generic inputs like:
 
-- `--mode deterministic`
-- `--mode llm`
+- `--execution-mode deterministic`
+- `--execution-mode exploratory`
 - `--auth-mode cookie_bypass`
 - `--auth-mode real_jwt`
 - `--bootstrap <name>`
@@ -105,9 +105,9 @@ Deterministic mode:
 - stable selectors
 - route/auth/bootstrap preconditions
 - artifact shell and known labels
-- suitable for authoritative gating when the consuming repo chooses to do so
+- suitable for deterministic evidence and strict wrapper policies when a consuming repo opts in
 
-LLM mode:
+Exploratory mode:
 - semantic grading
 - narrative quality
 - fuzzy content assessment
@@ -128,7 +128,7 @@ Why:
 - exploratory debugging
 - HITL support
 
-It should not become the authoritative execution substrate for `uismoke`.
+It should not become the default execution substrate for `uismoke`.
 
 ### 4. Stable JSON out
 
