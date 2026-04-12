@@ -28,16 +28,15 @@ HEADER
 
 # Layer 1: Universal Baseline (from agent-skills)
 cat "$REPO_ROOT/fragments/universal-baseline.md" >> "$OUTFILE"
-echo "" >> "$OUTFILE"
-echo "---" >> "$OUTFILE"
-echo "" >> "$OUTFILE"
 
 # Layer 2: Repo Addendum (optional)
 if [[ -f "$REPO_ROOT/fragments/repo-addendum.md" ]]; then
+    echo "" >> "$OUTFILE"
+    echo "---" >> "$OUTFILE"
+    echo "" >> "$OUTFILE"
     echo "## Repo-Specific Addendum" >> "$OUTFILE"
     echo "" >> "$OUTFILE"
     cat "$REPO_ROOT/fragments/repo-addendum.md" >> "$OUTFILE"
-    echo "" >> "$OUTFILE"
 fi
 
 LINES=$(wc -l < "$OUTFILE")
