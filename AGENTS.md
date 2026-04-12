@@ -663,5 +663,3 @@ VISUAL_BASE_URL=http://localhost:5173 pnpm --filter frontend test:visual:update
 **Details**: Each skill's SKILL.md contains full documentation
 **Specification**: https://agentskills.io/specification
 **Source**: Generated from agent-skills commit shown in header
-
----
