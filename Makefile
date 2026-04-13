@@ -1,4 +1,4 @@
-.PHONY: ci-lite lint test install help
+.PHONY: ci-lite lint test install help regenerate-agents-md verify-agents-md check-workflow-syntax
 
 help:
 	@echo "Available targets:"
@@ -27,3 +27,8 @@ regenerate-agents-md:
 	@echo "🔄 Regenerating AGENTS.md..."
 	@./scripts/agents-md-compile.zsh
 
+verify-agents-md:
+	@./scripts/verify-agents-md.sh
+
+check-workflow-syntax:
+	@./scripts/check-workflow-syntax.sh
