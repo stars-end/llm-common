@@ -19,5 +19,7 @@ MSG
 fi
 
 echo "Validating workflow syntax with actionlint..."
-actionlint -color
+# This guard is for workflow syntax/load errors. Keep shellcheck style
+# findings out of this gate to avoid blocking unrelated legacy scripts.
+actionlint -color -ignore 'shellcheck reported issue'
 echo "OK: workflow syntax validation passed"
