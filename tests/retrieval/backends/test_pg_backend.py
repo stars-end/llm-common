@@ -3,6 +3,7 @@
 Uses mocks to avoid requiring a real database connection in CI.
 """
 
+import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -172,6 +173,10 @@ async def test_upsert_chunks(backend, mock_engine):
 
     # Should call execute twice (once per chunk)
     assert mock_conn.execute.call_count == 2
+    first_params = mock_conn.execute.call_args_list[0].args[1]
+    assert first_params["metadata"] == json.dumps({"key": "value1"})
+    assert isinstance(first_params["embedding"], str)
+    assert first_params["embedding"].startswith("[")
 
 
 @pytest.mark.asyncio
@@ -545,6 +550,44 @@ def test_sql_injection_allows_valid_whitelisted_tables(mock_embed_fn, mock_engin
                 vector_dimensions=1536,
             )
             assert backend.table == table
+
+
+def test_sql_injection_allows_beads_scoped_validation_tables(mock_embed_fn, mock_engine):
+    """Test that Beads-scoped validation tables are accepted for disposable probes."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        backend = PgVectorBackend(
+            database_url="postgresql+asyncpg://test:test@localhost/test",
+            table="bd_9n1t2_27_qwen_rag_probe",
+            embed_fn=mock_embed_fn,
+            vector_dimensions=4096,
+        )
+
+        assert backend.table == "bd_9n1t2_27_qwen_rag_probe"
+        assert backend.vector_dimensions == 4096
+
+
+def test_sql_injection_rejects_malformed_validation_table(mock_embed_fn, mock_engine):
+    """Test that validation table support does not permit arbitrary table names."""
+    with patch("llm_common.retrieval.backends.pg_backend.create_async_engine") as mock_create:
+        mock_create.return_value = mock_engine
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="bd_9n1t2_27_qwen_rag_probe; DROP TABLE users; --",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=4096,
+            )
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            PgVectorBackend(
+                database_url="postgresql+asyncpg://test:test@localhost/test",
+                table="bd_9n1t2_27_qwen_rag_probe_extra",
+                embed_fn=mock_embed_fn,
+                vector_dimensions=4096,
+            )
 
 
 def test_sql_injection_allows_valid_whitelisted_columns(mock_embed_fn, mock_engine):
