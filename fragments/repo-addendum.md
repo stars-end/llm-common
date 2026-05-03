@@ -24,7 +24,6 @@ decision.
 
 For work in this repo:
 - read repo-memory maps first for brownfield orientation when touching mapped areas
-- use `llm-tldr` first for semantic discovery, exact trace work, call paths, slices, impact, and structural debugging
 - use `serena` first for known-symbol refactors and insertions
 
 If one of these is skipped on a qualifying task, the final response or handoff
