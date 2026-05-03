@@ -139,12 +139,11 @@ def main() -> None:
 
         if args.command == "complete-run":
             manifest_path = Path(args.manifest)
-            manifest = json.loads(manifest_path.read_text())
-            artifacts = None
+            completed = complete_run_manifest(manifest_path, status=args.status)
             if args.reports_dir:
-                paths = write_report_artifacts(manifest=manifest, out_dir=Path(args.reports_dir))
+                paths = write_report_artifacts(manifest=completed, out_dir=Path(args.reports_dir))
                 artifacts = CompletionArtifacts(report_paths=paths, summary_path=paths.get("summary_json"))
-            completed = complete_run_manifest(manifest_path, status=args.status, artifacts=artifacts)
+                completed = complete_run_manifest(manifest_path, status=args.status, artifacts=artifacts)
             print(json.dumps({"ok": True, "manifest": completed}))
             raise SystemExit(0)
 

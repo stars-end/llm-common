@@ -73,9 +73,14 @@ def test_cli_validate_init_generate_complete_summarize(tmp_path: Path, monkeypat
     assert payload["status"] == "completed"
     assert payload["ended_at"] is not None
     assert "report_md" in payload["report_paths"]
+    summary = json.loads((reports_dir / "summary.json").read_text())
+    assert summary["status"] == "completed"
+    assert summary["ended_at"] is not None
+    report = (reports_dir / "report.md").read_text()
+    assert "**Status**: completed" in report
+    assert "**Ended**: None" not in report
 
     monkeypatch.setattr("sys.argv", ["persona-tester", "summarize", "--runs-dir", str(tmp_path), "--product-key", "prime-radiant"])
     with pytest.raises(SystemExit) as ex:
         main()
     assert ex.value.code == 0
-
