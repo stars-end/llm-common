@@ -146,7 +146,7 @@ Conclusion:
 
 ### Current recommendation
 
-`RECOMMENDATION: experimental_only`
+`RECOMMENDATION: proceed_to_phase_1_with_mandatory_phase_1_5_gate`
 
 ### Why
 
@@ -155,34 +155,119 @@ Conclusion:
   - one Affordabot-style single fixture
   - three Prime matrix cases
   - three Affordabot matrix fixtures
-- The remaining uncertainty is not basic viability. It is baseline comparison quality and production policy.
+- The remaining uncertainty is no longer basic viability. It is traffic-like stability, JSON/tool-call behavior under real product loops, and production policy.
+- Z.ai baseline access remains blocked, so this report should not claim a clean head-to-head win. It does provide enough evidence to start the lowest-risk shared text-lane cutover.
 
-### Suggested policy
+### Migration policy
 
-- Prime Advisor:
-  - add `deepseek-v4-flash` as an experimental text lane candidate
-  - keep `deepseek-v4-pro` reserved for harder cases or later evaluation
-- Affordabot:
-  - add `deepseek-v4-flash` as an experimental analysis lane candidate behind an explicit flag
-  - keep critique/review turned on
-- Z.ai:
-  - do not remove current Z.ai wiring until we complete one clean fresh baseline rerun with working access
+The migration should proceed in phases:
+
+1. Phase 1: cut over the main proven config-driven/OpenRouter-backed text lanes to `deepseek-v4-flash` with minimal behavior change.
+2. Phase 1.5: mandatory validation gate on traffic-like Prime Advisor and Affordabot text behaviors before touching harder Z.ai-shaped runtime paths.
+3. Phase 2: migrate remaining direct/Z.ai-shaped text runtime surfaces that require adaptation.
+4. Phase 3: cleanup runtime env names, stale docs, active defaults, and operator health checks.
+
+Z.ai should remain available for vision and for any explicitly retained fallback path until the product migration proves otherwise. It should not remain the default production text lane once Phase 1 and Phase 1.5 pass.
+
+## Ownership Boundary
+
+Split the migration by ownership boundary, not by provider:
+
+- `llm-common` owns shared DeepSeek text provider/client behavior, default model-selection contracts, JSON/tool-loop expectations, cost/error/env handling, and the shared "text = DeepSeek Flash, vision = Z.ai" boundary.
+- `prime-radiant-ai` owns Prime Advisor product integration, advisor loop validation, portfolio/advisor runtime behavior, and Prime admin/diagnostic behavior.
+- `affordabot` owns economics-analysis integration, JSON/review fixtures, product-specific fallback decisions, Windmill bridge/product runtime paths, and Affordabot health behavior.
+
+Do not split a single runtime path across multiple agents in the same phase. Shared abstractions should land in `llm-common` first; product repos should consume them rather than inventing local provider abstractions.
 
 ## Next Step
 
-The next highest-signal step is one clean baseline wave:
+The next highest-signal implementation sequence is:
 
-1. restore a usable Z.ai package/account state
-2. rerun the same Prime and Affordabot fixtures unchanged
-3. compare `glm-4.7` vs `deepseek-v4-flash` directly on:
-   - latency
-   - token use
-   - tool-loop stability
-   - first-pass JSON validity
-   - final schema validity
-   - review pass rate
+### Phase 1
 
-If Z.ai remains unavailable, the practical decision can still move forward as:
+Objective: cut over the main proven text lane to DeepSeek Flash with minimal behavior change.
 
-- keep current Z.ai production wiring unchanged
-- expose `deepseek-v4-flash` as an opt-in experimental lane for text-only use cases
+Initial scope:
+
+- `llm-common`: shared text-default/model-selection surfaces such as orchestrator, understanding, reflection, and tool-selection lanes.
+- `prime-radiant-ai`: config-driven/OpenRouter-backed text paths such as LLM config and portfolio analyzer surfaces.
+- `affordabot`: model-default wiring in the application entry/runtime config, without touching search, direct bridge, or vision paths.
+
+Validation:
+
+- structured JSON still validates
+- fallback behavior still works
+- metrics/cost tracking records DeepSeek Flash correctly
+- core text smoke tests run without requiring Z.ai text access
+
+Exit:
+
+- in-scope text defaults point to `deepseek-v4-flash`
+- no vision/search/direct-bridge behavior is changed
+
+### Phase 1.5
+
+Objective: validate DeepSeek Flash on traffic-like text behavior before touching harder runtime paths.
+
+This gate is mandatory.
+
+Validation:
+
+- rerun real-ish Prime Advisor tool loops
+- rerun real-ish Affordabot JSON/review loops
+- verify tool-call stability
+- verify JSON first-pass and final-pass rates
+- verify latency is acceptable for small orchestration calls
+- verify review/critique behavior remains conservative enough
+- verify fallback behavior and cost/metrics tracking
+
+Exit:
+
+- Phase 2 may start only if the traffic-like loops pass or produce bounded, understood fixes in `llm-common`.
+
+### Phase 2
+
+Objective: migrate remaining Z.ai-shaped text runtime surfaces that need adaptation.
+
+Initial scope:
+
+- Prime direct advisor and related agent paths, including direct advisor, portfolio advisor, PydanticAI runtime, and admin/diagnostic LLM endpoints.
+- Affordabot core pipeline/provider wiring, direct bridge/discovery text paths, and Windmill bridge integration where text provider assumptions are still Z.ai-shaped.
+
+Out of scope:
+
+- vision paths
+- broad search-provider changes
+- cleanup-only docs churn
+
+Validation:
+
+- text runtime paths work without `ZAI_API_KEY`
+- retries/failure taxonomy remain accurate
+- health/diagnostic endpoints reflect the new text-provider truth
+
+Exit:
+
+- no direct production text runtime depends on Z.ai transport
+- Z.ai remains only for vision or explicitly retained non-text fallback behavior
+
+### Phase 3
+
+Objective: cleanup and convergence after runtime cutover works.
+
+Scope:
+
+- env/runtime config naming cleanup
+- stale active runtime references to Z.ai text defaults
+- operator docs and health-check alignment
+- dead legacy branches in active runtime code
+
+Validation:
+
+- docs and runtime env match reality
+- no stale active default-text references remain
+- operator health checks state: text defaults use DeepSeek Flash; vision remains Z.ai
+
+Exit:
+
+- one coherent runtime contract across `llm-common`, `prime-radiant-ai`, and `affordabot`
