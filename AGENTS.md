@@ -339,12 +339,12 @@ Codex desktop hydration check:
 4. only then escalate to fallback scripts, daemon debugging, or \`Tool routing exception\`
 
 Fallback to shell/file reads or ordinary patch editing is allowed only when:
-- the MCP tool is unavailable in the current runtime and no canonical fallback exists
-- the MCP tool cannot answer the question after one reasonable attempt
-- the MCP server process cannot read the host-local project path and the local contained fallback is unavailable or insufficient
+- serena is unavailable in the current runtime and the task requires symbol-aware operations
+- the selected routing surface cannot answer after one reasonable attempt
+- semantic index status is not ready, or required runtime tooling cannot read the host-local project path
 - the task is trivially faster with direct file access
 
-If the agent does not use the matching MCP tool on a qualifying task, it MUST state \`Tool routing exception: <reason>\` in the final response or handoff.
+If the agent does not use the matching routing surface on a qualifying task, it MUST state \`Tool routing exception: <reason>\` in the final response or handoff.
 
 ## 6) Parallel Agent Orchestration (V8.4)
 
