@@ -33,6 +33,7 @@ pgvector = ["sqlalchemy", "asyncpg", "pgvector"]
 
 [tool.poetry.scripts]
 uismoke = "llm_common.agents.uismoke_runner:main"
+persona-tester = "llm_common.persona_tester.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
