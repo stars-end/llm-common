@@ -1,6 +1,8 @@
 """LLM Common - Shared LLM framework."""
 
 from llm_common.core import (
+    DEFAULT_TEXT_MODEL,
+    DEFAULT_TEXT_PROVIDER,
     APIKeyError,
     BudgetExceededError,
     CacheError,
@@ -20,7 +22,7 @@ from llm_common.core import (
 )
 from llm_common.embeddings import EmbeddingService, OpenAIEmbeddingService
 from llm_common.glm_models import GLMModels
-from llm_common.providers import OpenRouterClient, ZaiClient
+from llm_common.providers import DeepSeekClient, OpenRouterClient, ZaiClient
 from llm_common.retrieval import RetrievalBackend, RetrievedChunk
 from llm_common.web_search import WebSearchClient
 
@@ -31,6 +33,8 @@ __all__ = [
     "__version__",
     # Core
     "LLMClient",
+    "DEFAULT_TEXT_MODEL",
+    "DEFAULT_TEXT_PROVIDER",
     "LLMConfig",
     "LLMMessage",
     "LLMResponse",
@@ -51,6 +55,7 @@ __all__ = [
     "GLMModels",
     # Providers
     "ZaiClient",
+    "DeepSeekClient",
     "OpenRouterClient",
     # Web Search
     "WebSearchClient",

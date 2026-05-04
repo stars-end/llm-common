@@ -9,7 +9,7 @@ import logging
 from pydantic import BaseModel, Field
 
 from llm_common.agents.phases.understand import Understanding
-from llm_common.core import LLMClient, LLMMessage, MessageRole
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMClient, LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +69,14 @@ class ReflectPhase:
     def __init__(
         self,
         llm_client: LLMClient,
-        model: str = "glm-4.5-air",
+        model: str = DEFAULT_TEXT_MODEL,
         max_iterations: int = 2,
     ):
         """Initialize ReflectPhase.
 
         Args:
             llm_client: LLM client for making API calls
-            model: Model to use for reflection (default: glm-4.5-air for speed)
+            model: Model to use for reflection (default: deepseek-v4-flash)
             max_iterations: Maximum iterations before forcing completion (default: 2)
         """
         self.llm = llm_client

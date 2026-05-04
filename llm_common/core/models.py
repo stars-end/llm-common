@@ -6,6 +6,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+DEFAULT_TEXT_PROVIDER = "deepseek"
+DEFAULT_TEXT_MODEL = "deepseek-v4-flash"
+
 
 class MessageRole(str, Enum):
     """Message role in conversation."""
@@ -73,7 +76,7 @@ class LLMConfig(BaseModel):
     alert_threshold: float = 0.8  # Alert at 80% of budget
 
     # Provider-specific
-    provider: Literal["zai", "openrouter", "openai", "anthropic"] = "openrouter"
+    provider: Literal["zai", "openrouter", "openai", "anthropic", "deepseek"] = "openrouter"
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

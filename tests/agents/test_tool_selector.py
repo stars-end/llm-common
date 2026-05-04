@@ -4,6 +4,7 @@ import pytest
 
 from llm_common.agents.schemas import PlannedTask, SubTask
 from llm_common.agents.tool_selector import ToolSelectionConfig, ToolSelector
+from llm_common.core import DEFAULT_TEXT_MODEL
 from llm_common.core.models import LLMResponse, LLMUsage
 
 
@@ -196,6 +197,11 @@ def test_tool_selection_config_from_env(monkeypatch: pytest.MonkeyPatch) -> None
     assert config.max_calls == 10
     assert config.timeout_s == 60
     assert config.fail_closed is False
+
+
+def test_tool_selection_config_defaults_to_shared_text_model() -> None:
+    config = ToolSelectionConfig()
+    assert config.model == DEFAULT_TEXT_MODEL
 
 
 @pytest.mark.asyncio

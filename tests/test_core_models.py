@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from llm_common.core import (
+    DEFAULT_TEXT_MODEL,
+    DEFAULT_TEXT_PROVIDER,
     CostMetrics,
     LLMConfig,
     LLMMessage,
@@ -76,6 +78,12 @@ def test_llm_config_defaults():
     assert config.provider == "openrouter"
 
 
+def test_shared_text_defaults():
+    """Test shared text lane constants."""
+    assert DEFAULT_TEXT_PROVIDER == "deepseek"
+    assert DEFAULT_TEXT_MODEL == "deepseek-v4-flash"
+
+
 def test_llm_config_custom_values():
     """Test LLMConfig with custom values."""
     config = LLMConfig(
@@ -93,6 +101,18 @@ def test_llm_config_custom_values():
     assert config.timeout == 30
     assert config.budget_limit_usd == 10.0
     assert config.provider == "zai"
+
+
+def test_llm_config_accepts_deepseek_provider():
+    """Test LLMConfig accepts DeepSeek as an official provider."""
+    config = LLMConfig(
+        api_key="test-key",
+        default_model=DEFAULT_TEXT_MODEL,
+        provider="deepseek",
+    )
+
+    assert config.provider == "deepseek"
+    assert config.default_model == DEFAULT_TEXT_MODEL
 
 
 def test_web_search_result_creation():

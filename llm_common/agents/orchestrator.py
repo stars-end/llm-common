@@ -21,7 +21,7 @@ from llm_common.agents.provenance import EvidenceEnvelope
 from llm_common.agents.synthesizer import AnswerSynthesizer
 from llm_common.agents.tool_context import ToolContextManager
 from llm_common.agents.tools import ToolRegistry
-from llm_common.core import LLMClient
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class IterativeOrchestrator:
         tool_registry: ToolRegistry,
         work_dir: Path | str = "/tmp/iterative_agent",
         max_iterations: int = 2,
-        model: str = "glm-4.5-air",
+        model: str = DEFAULT_TEXT_MODEL,
     ):
         """Initialize IterativeOrchestrator.
 
@@ -80,7 +80,7 @@ class IterativeOrchestrator:
             tool_registry: Registry of available tools
             work_dir: Directory for context storage
             max_iterations: Maximum Plan→Execute→Reflect iterations (default: 2)
-            model: Model for Understand/Reflect phases (default: glm-4.5-air)
+            model: Model for Understand/Reflect phases (default: deepseek-v4-flash)
         """
         self.llm = llm_client
         self.work_dir = Path(work_dir)

@@ -6,7 +6,7 @@ import pytest
 
 from llm_common.agents.phases.reflect import ReflectionResult, ReflectPhase
 from llm_common.agents.phases.understand import Entity, Understanding
-from llm_common.core import LLMResponse, LLMUsage
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMResponse, LLMUsage
 
 
 @pytest.fixture
@@ -58,6 +58,10 @@ class TestReflectionResult:
 
 class TestReflectPhase:
     """Tests for ReflectPhase."""
+
+    def test_default_model_uses_shared_text_lane(self, mock_llm_client):
+        phase = ReflectPhase(mock_llm_client)
+        assert phase.model == DEFAULT_TEXT_MODEL
 
     @pytest.mark.asyncio
     async def test_run_returns_complete(self, mock_llm_client, sample_understanding):
