@@ -7,6 +7,8 @@ with a more portable solution that works with any pgvector-enabled Postgres.
 Recommended for: Prime Radiant and Affordabot production deployments on Railway.
 """
 
+import json
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -36,6 +38,35 @@ _ALLOWED_TABLES = frozenset({
     "test_chunks",
     "custom_table",
 })
+
+_VALIDATION_TABLE_PATTERN = re.compile(r"^bd_[a-z0-9]+(?:_[a-z0-9]+)*_rag_probe$")
+
+
+def _is_allowed_table_name(table: str) -> bool:
+    """Return whether a table name is safe for PgVectorBackend SQL interpolation."""
+    return table in _ALLOWED_TABLES or (
+        len(table) <= 63 and _VALIDATION_TABLE_PATTERN.fullmatch(table) is not None
+    )
+
+
+def _serialize_metadata(metadata: Any) -> str:
+    """Serialize chunk metadata for asyncpg JSONB parameters."""
+    return json.dumps(metadata or {})
+
+
+def _serialize_embedding(embedding: list[float]) -> str:
+    """Serialize an embedding for pgvector parameters."""
+    return str(embedding)
+
+
+def _deserialize_metadata(metadata: Any) -> dict[str, Any]:
+    """Normalize JSONB metadata returned by asyncpg/SQLAlchemy."""
+    if not metadata:
+        return {}
+    if isinstance(metadata, str):
+        parsed = json.loads(metadata)
+        return parsed if isinstance(parsed, dict) else {}
+    return metadata
 
 # Security: Whitelist of allowed column names to prevent SQL injection
 _ALLOWED_COLUMNS = frozenset({
@@ -126,9 +157,10 @@ class PgVectorBackend(RetrievalBackend):
             ValueError: If table or column names are not in the security whitelist.
         """
         # Security: Validate table name against whitelist to prevent SQL injection
-        if table not in _ALLOWED_TABLES:
+        if not _is_allowed_table_name(table):
             raise ValueError(
                 f"Invalid table name '{table}'. Allowed tables: {sorted(_ALLOWED_TABLES)}. "
+                f"Validation tables must match bd_<tokens>_rag_probe. "
                 f"This restriction prevents SQL injection attacks."
             )
 
@@ -246,7 +278,7 @@ class PgVectorBackend(RetrievalBackend):
                 continue
 
             # Extract metadata (stored as JSONB)
-            metadata_dict = row.metadata if row.metadata else {}
+            metadata_dict = _deserialize_metadata(row.metadata)
 
             chunks.append(
                 RetrievedChunk(
@@ -301,8 +333,8 @@ class PgVectorBackend(RetrievalBackend):
                     "id": chunk.get("chunk_id") or chunk.get("id"),
                     "content": chunk["content"],
                     "source": chunk["source"],
-                    "metadata": chunk.get("metadata", {}),
-                    "embedding": embedding,
+                    "metadata": _serialize_metadata(chunk.get("metadata", {})),
+                    "embedding": _serialize_embedding(embedding),
                 }
             )
 
@@ -355,7 +387,7 @@ class PgVectorBackend(RetrievalBackend):
             if not row:
                 return None
 
-            metadata_dict = row.metadata if row.metadata else {}
+            metadata_dict = _deserialize_metadata(row.metadata)
 
             return RetrievedChunk(
                 content=row[self.text_col],
