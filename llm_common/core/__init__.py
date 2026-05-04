@@ -11,6 +11,8 @@ from llm_common.core.exceptions import (
     TimeoutError,
 )
 from llm_common.core.models import (
+    DEFAULT_TEXT_MODEL,
+    DEFAULT_TEXT_PROVIDER,
     CostMetrics,
     LLMConfig,
     LLMMessage,
@@ -33,6 +35,8 @@ __all__ = [
     "TimeoutError",
     "CacheError",
     # Models
+    "DEFAULT_TEXT_MODEL",
+    "DEFAULT_TEXT_PROVIDER",
     "LLMConfig",
     "LLMMessage",
     "LLMResponse",

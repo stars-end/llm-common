@@ -9,7 +9,7 @@ from llm_common.agents.phases.understand import (
     Understanding,
     UnderstandPhase,
 )
-from llm_common.core import LLMResponse, LLMUsage
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMResponse, LLMUsage
 
 
 @pytest.fixture
@@ -60,6 +60,10 @@ class TestUnderstanding:
 
 class TestUnderstandPhase:
     """Tests for UnderstandPhase."""
+
+    def test_default_model_uses_shared_text_lane(self, mock_llm_client):
+        phase = UnderstandPhase(mock_llm_client)
+        assert phase.model == DEFAULT_TEXT_MODEL
 
     @pytest.mark.asyncio
     async def test_run_extracts_intent_and_entities(self, mock_llm_client):

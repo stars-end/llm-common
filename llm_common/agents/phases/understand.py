@@ -8,7 +8,7 @@ import logging
 
 from pydantic import BaseModel, Field
 
-from llm_common.core import LLMClient, LLMMessage, MessageRole
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMClient, LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +67,12 @@ class UnderstandPhase:
          Entity(type='period', value='YTD')]
     """
 
-    def __init__(self, llm_client: LLMClient, model: str = "glm-4.5-air"):
+    def __init__(self, llm_client: LLMClient, model: str = DEFAULT_TEXT_MODEL):
         """Initialize UnderstandPhase.
 
         Args:
             llm_client: LLM client for making API calls
-            model: Model to use for understanding (default: glm-4.5-air for speed)
+            model: Model to use for understanding (default: deepseek-v4-flash)
         """
         self.llm = llm_client
         self.model = model

@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError
 
 from llm_common.agents.schemas import PlannedTask, ToolCall
-from llm_common.core import LLMClient, LLMMessage
+from llm_common.core import DEFAULT_TEXT_MODEL, LLMClient, LLMMessage
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,10 @@ def _parse_int(value: str | None, default: int) -> int:
 class ToolSelectionConfig(BaseModel):
     """Configuration for the ToolSelector."""
 
-    model: str = Field(default="glm-4.5-air", description="Primary model for tool selection.")
+    model: str = Field(
+        default=DEFAULT_TEXT_MODEL,
+        description="Primary model for tool selection.",
+    )
     fallback_model: str | None = Field(
         default=None, description="Optional fallback model if the primary model fails."
     )
@@ -50,7 +53,7 @@ class ToolSelectionConfig(BaseModel):
     def from_env(cls) -> "ToolSelectionConfig":
         """Loads configuration from environment variables."""
         return cls(
-            model=os.getenv("LLM_COMMON_TOOL_SELECTION_MODEL", "glm-4.5-air"),
+            model=os.getenv("LLM_COMMON_TOOL_SELECTION_MODEL", DEFAULT_TEXT_MODEL),
             fallback_model=os.getenv("LLM_COMMON_TOOL_SELECTION_FALLBACK_MODEL"),
             max_calls=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_MAX_CALLS"), 5),
             timeout_s=_parse_int(os.getenv("LLM_COMMON_TOOL_SELECTION_TIMEOUT_S"), 30),
